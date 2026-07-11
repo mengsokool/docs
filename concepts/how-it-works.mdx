@@ -1,0 +1,58 @@
+---
+title: "How BeeNut Works: Camera, AI, and Counts"
+sidebarTitle: "How It Works"
+description: "Understand how BeeNut connects a live camera feed to YOLO inference and delivers stable counted totals through its kiosk interface."
+---
+
+BeeNut is built around two cooperating pieces of software that run at the same time: the kiosk interface you touch and see, and a background service called `beenutd` that owns the camera, runs the AI model, and manages the hardware. Keeping these two pieces separate is an intentional design choice — it means the display and controls stay smooth and responsive even while the counting engine is doing intensive work in the background.
+
+## The Two-Process Design
+
+When you launch BeeNut, two programs start together. From your perspective as an operator, they feel like one seamless application — but understanding the split helps explain why the kiosk behaves the way it does.
+
+| What you interact with | What runs in the background |
+|---|---|
+| **Kiosk UI** — the touch screen, count display, target selection, settings panels, and diagnostics | **`beenutd` service** — camera capture, AI inference, counting logic, GPIO hardware control |
+| Stays responsive even during heavy AI processing | Handles all performance-sensitive work in native code |
+| Sends your settings changes to the service | Sends count results, detection data, and status back to the UI |
+| Recovers automatically if the service restarts | Restarts itself automatically after unexpected shutdowns |
+
+The UI and service talk to each other over a local socket — a fast, private communication channel that never leaves your device. You never need to configure or interact with this connection directly; it is managed automatically.
+
+## Live Camera Preview
+
+The camera feed you see in the kiosk window comes directly from the `beenutd` service. Rather than copying raw video data through multiple software layers — which would add lag and consume CPU — BeeNut delivers the preview as a native GPU texture. The frame the camera captures is the same frame your screen renders, with no additional processing steps in between.
+
+The practical result: the preview feels instant. Even on a Raspberry Pi 4 or 5, you get a smooth, real-time view of the counting tray with no perceptible delay between what the camera sees and what you see.
+
+## AI Inference Pipeline
+
+Every frame captured by the camera is analyzed by your YOLO model. The background service takes the raw image, feeds it through ONNX Runtime, and receives back a list of detections — each one describing what was found, where it is on screen, and how confident the model is.
+
+The full path from camera to count looks like this:
+
+```text
+camera → native service → YOLO inference → stable count → kiosk display
+```
+
+The bounding boxes you see drawn on the preview overlay are the live output of this pipeline: each rectangle marks one detected object as classified by your model.
+
+## Stable Count Output
+
+Raw AI detections naturally fluctuate from frame to frame. A part that moves slightly, a glare on its surface, or two parts that briefly overlap can cause the detected count to jump up or down by one for a frame or two. If BeeNut displayed the raw detection count directly, you would see the number flicker constantly.
+
+To produce the steady number shown on screen, BeeNut applies **temporal smoothing**: it keeps a short history of recent detection counts (a sliding window of frames) and calculates a stable value from that history rather than displaying the latest raw result. Only when the smoothed count has held steady for a configurable number of consecutive frames does BeeNut commit it as the confirmed total and display it in green (the **READY** state).
+
+This means the displayed count is always a trustworthy, settled value — not a momentary snapshot.
+
+## Tray Sensor Reset
+
+If your setup includes a physical tray presence sensor connected to the Raspberry Pi GPIO pins, BeeNut uses it as a hardware gate. When you lift the tray to empty it, the sensor detects the removal and the count resets to zero immediately — no waiting for the smoothing window to settle. When you place a new tray down, counting starts fresh.
+
+This hardware path is entirely independent of the AI pipeline, so the reset is instantaneous regardless of what the model is detecting at that moment.
+
+## The Control Socket
+
+The UI and the `beenutd` service coordinate over a local Unix socket on your device. When you change a setting — adjusting the confidence threshold, switching the target part type, or toggling the light relay — the kiosk sends that change to the service over this socket, and the service applies it. Status updates, count values, and detection data flow back the same way.
+
+This is an internal plumbing detail you never need to configure. It is mentioned here only so the system makes sense: if you ever wonder why a settings change takes effect almost instantly without restarting the app, this private channel is why.

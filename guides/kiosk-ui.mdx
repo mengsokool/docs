@@ -1,0 +1,102 @@
+---
+title: "Using the BeeNut Kiosk Interface"
+sidebarTitle: "Kiosk Interface"
+description: "Navigate the BeeNut kiosk screen: live preview, count display, target selector, pause/resume controls, and preview inspection mode."
+---
+
+The BeeNut kiosk screen is your primary workspace during a counting session. Everything you need — the live camera feed, the current count, the active part type, and the key controls — is visible at a glance. The interface is designed for touch screens, so every button and selector is a large, easy-to-tap target.
+
+## Screen layout
+
+BeeNut adapts its layout to the screen orientation and size.
+
+**Landscape (wide) layout** — the default on monitors and landscape tablets:
+
+- The **camera preview** fills a square panel on the left side of the screen. It takes up as much vertical height as the display allows.
+- To the right of the preview, a vertical column holds the **target selector** at the top, the **count panel** in the middle, and the **control buttons** at the bottom.
+
+**Portrait (compact) layout** — used on portrait tablets and smaller displays:
+
+- The **camera preview** sits at the top of the screen, centered and scaled to fit available width.
+- Below the preview, the **count panel** is centered in the remaining space.
+- The **target selector** and **control buttons** are pinned to the bottom of the screen.
+
+## Camera preview
+
+The live camera preview streams directly from the native `beenutd` service using shared memory, DMA-BUF, or IOSurface transport — whichever your platform supports. The preview renders at native resolution without re-encoding so what you see is close to real time.
+
+When the service is running and the camera is healthy, the preview shows a live image of the counting tray. When a fault exists (camera error, model not loaded, service disconnected), the count panel shows the fault state and the count display dims to `---`.
+
+## Count panel
+
+The count panel is the large display on the right side (or below the preview in compact mode). It shows three pieces of information:
+
+| Element | What it means |
+|---|---|
+| **Status dot + label** | A colored indicator dot and a short status message. Green means the system is stable and counting. Other colors indicate paused, faulted, or actively counting states. |
+| **Count number** | The current stable part count, displayed as a zero-padded three-digit number (e.g., `007`). When counting is in progress, a loading bar appears instead of a number. When the preview is paused or a fault is active, the display shows `---`. |
+| **Subtitle** | Shows the currently selected part type name while waiting for a tray, or "items" when a tray is detected and a count is locked in. |
+
+The count panel reflects BeeNut's stabilized output. BeeNut applies a lower-median filter over a sliding window of frames before declaring a count final, so the number you see has already been smoothed — transient glare or shuffling parts do not cause the display to flicker.
+
+## Status indicator colors
+
+The colored dot in the count panel header tells you the current machine state at a glance:
+
+| Color | Meaning |
+|---|---|
+| **Green** (tertiary) | Tray is present; count is stable and ready. |
+| **Blue** (primary) | System is running; waiting for a tray. |
+| **Grey** | Preview is paused. |
+| **Red** | A fault is active — check the camera, model, or service. |
+
+## Target selector
+
+The target selector is a dropdown button that shows the currently selected part type, including its thumbnail image (if one is configured). Tap it to open a menu listing all enabled part types in your catalog.
+
+To switch the active part type:
+
+1. Tap the target selector button.
+2. A dropdown menu opens with all enabled part types. Each entry shows the part's thumbnail and name.
+3. Tap the part type you want to count.
+
+The selector closes automatically and BeeNut immediately begins filtering detections for the new target.
+
+<Note>
+Only **enabled** part types appear in the selector. If a part type is missing from the list, open **Settings → Catalog** and confirm that it is enabled.
+</Note>
+
+## Pause and resume
+
+The **Pause/Resume** button is in the bottom row of the control area. It shows a pause icon when the preview is running, and a play icon when the preview is paused.
+
+- **Pause** — freezes the camera preview and stops inference. The count panel dims to `---`. Use this when you need to reposition the camera or check a tray without triggering a new count.
+- **Resume** — restarts the preview and inference pipeline from where it left off.
+
+Pausing does not disconnect the service or reload the model. It only suspends frame delivery to the inference engine.
+
+## Count once (manual trigger)
+
+BeeNut normally counts continuously and gates the output through the tray sensor. If you want to trigger a single counting snapshot manually — for example, to verify a tray without the sensor — use the **Count Once** action in **Settings → Test → Manual Count**.
+
+## Preview inspection mode
+
+Tap or click anywhere on the live camera preview to enter inspection mode.
+
+In inspection mode:
+- The background outside the preview dims slightly to signal that you are in inspection.
+- Bounding boxes appear around every detected object, color-coded by class.
+- A confidence score label appears on each bounding box.
+- Detection labels from your model appear next to each box.
+
+Tap the preview again, or tap outside it, to exit inspection mode and return to the normal kiosk view.
+
+<Tip>
+Use inspection mode to verify that your model is detecting the correct class labels before you commit to a production count run.
+</Tip>
+
+## Settings and shutdown
+
+The **Settings** button is the gear icon at the bottom-left of the control row. Tap it to open the settings sidebar, where you can configure the camera, model, catalog, GPIO, and display options, run hardware tests, and view system health.
+
+The **Shutdown** button is inside the settings sidebar, not on the main kiosk screen. This is intentional — it prevents accidental shutdown during a counting session.

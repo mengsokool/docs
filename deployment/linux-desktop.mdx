@@ -1,0 +1,92 @@
+---
+title: "Install BeeNut on a Linux Desktop or Kiosk Machine"
+sidebarTitle: "Linux Desktop"
+description: "Install BeeNut on Ubuntu or Debian AMD64 as a desktop app or locked-down kiosk appliance using the appliance-linux profile."
+---
+
+BeeNut supports Ubuntu and Debian on AMD64 in two deployment modes: as a normal desktop application that sits alongside other software, and as a locked-down kiosk appliance that takes over the display using the Cage Wayland compositor. The same `.deb` package and installer script support both modes — the difference is the install profile you apply after installation.
+
+## Supported Platforms
+
+- **OS**: Ubuntu 22.04 LTS or later, Debian 11 or later
+- **Architecture**: AMD64 (x86-64); ARM64 is also supported for non-Pi single-board computers
+- **Display**: X11 or Wayland desktop (for `desktop` mode); no existing display server required (for `appliance-linux` mode)
+
+## Install BeeNut
+
+<Tabs>
+  <Tab title="Desktop Install">
+    The desktop install mode adds BeeNut as a standard application without touching your boot configuration or display manager.
+
+    **One-command install**
+
+    Run the Linux bootstrapper with the `desktop` profile to download, verify, and install BeeNut in a single step:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+      | sudo env BEENUT_PROFILE=desktop bash
+    ```
+
+    After the installer finishes, BeeNut appears in your application launcher. Launch it from the desktop or run `beenut` from a terminal.
+
+    **Manual .deb install**
+
+    If you have already downloaded the `.deb` package from the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases), install it directly with `apt` and then run `beenut-setup` to apply a profile:
+
+    ```bash
+    sudo apt install ./beenut_*_amd64.deb
+    sudo beenut-setup
+    ```
+
+    `beenut-setup` detects your hardware and presents an interactive profile selection menu. Choose `desktop` to complete a standard application install.
+  </Tab>
+
+  <Tab title="Appliance (Kiosk) Install">
+    The appliance install mode turns the machine into a dedicated BeeNut kiosk. The installer installs the Cage Wayland compositor, binds the display to TTY7, and configures BeeNut to start full-screen automatically on every boot.
+
+    <Warning>
+    The `appliance-linux` profile intentionally takes over boot. After the device reboots, the standard desktop environment and login screen will no longer appear — the display goes directly into the BeeNut kiosk. The profile also disables TTY console logins and applies SSH shell restrictions as part of appliance hardening. **Do not apply this profile on a machine where you need normal desktop access.** If you need to recover the machine afterward, see the [Recovery](/deployment/recovery) page.
+    </Warning>
+
+    **One-command appliance install**
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+      | sudo env BEENUT_PROFILE=appliance-linux bash
+    ```
+
+    **Apply the appliance profile after a manual .deb install**
+
+    If you have already installed the `.deb` package, switch to appliance mode at any time by running:
+
+    ```bash
+    sudo beenut-setup --profile appliance-linux
+    ```
+
+    The setup utility installs Cage, registers the `beenut-kiosk-linux.service` systemd unit, and configures the service to wait for the `beenutd` socket before launching the compositor. On the next reboot, the machine starts directly into the BeeNut kiosk on TTY7.
+  </Tab>
+</Tabs>
+
+## What Gets Installed
+
+Regardless of the profile you choose, the following components land on the system after a successful install:
+
+| Path | Contents |
+|---|---|
+| `/opt/beenut/bin/beenutd` | Native C++ daemon — camera pipeline, ONNX inference, counting, GPIO |
+| `/opt/beenut/share/beenut-ui/` | Flutter Linux UI bundle |
+| `/opt/beenut/scripts/` | Field validation, diagnostics, and utility scripts |
+| `/lib/systemd/system/` | `beenut-service.service` and `beenut-kiosk-linux.service` unit files |
+
+In `desktop` mode, a `.desktop` launcher entry is also written to `/usr/share/applications/` so BeeNut appears in your application menu.
+
+## Upgrading and Repairing
+
+The Linux installer is idempotent. Running the install command again on an already-configured machine downloads the matching release package, verifies `checksums.sha256`, upgrades or repairs the installed package via `apt`, and reapplies the selected profile. You do not need to uninstall first.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+  | sudo env BEENUT_PROFILE=desktop bash
+```
+
+To switch from `desktop` to `appliance-linux` (or vice versa), re-run `beenut-setup` with the new profile after installation. If you are switching away from an appliance profile, run the recovery procedure first to restore the display manager before applying the new profile.

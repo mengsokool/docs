@@ -1,0 +1,190 @@
+---
+title: "BeeNut Troubleshooting: Fix Common Issues"
+sidebarTitle: "Troubleshooting"
+description: "Diagnose and fix common BeeNut problems including blank preview, service not connecting, unstable counts, and GPIO not working."
+---
+
+Most BeeNut problems fall into a small number of categories: the backend service is not running, a configuration value does not match the hardware, or the environment is missing a dependency. Work through the relevant accordion below from top to bottom — each step narrows the cause before you change anything in `config.json`.
+
+---
+
+<AccordionGroup>
+
+<Accordion title="Preview is blank or not showing">
+  The live camera preview is rendered by the `beenutd` service and streamed to the Flutter UI through a shared-memory socket. A blank preview means the stream has not been established.
+
+  1. **Check that `beenutd` is running.** Open **Settings → Status**. The connection indicator at the top of the panel shows whether the UI is connected to the backend socket. If it shows "Waiting for backend socket" or "Disconnected", the service is not running — see the next accordion for service startup steps.
+
+  2. **Check the camera device path.** Navigate to **Settings → Config → Camera** and confirm that the `device` field points to the correct device. On Linux, run `ls /dev/video*` in a terminal to list available camera nodes. If you have multiple cameras, try each device path in turn.
+
+  3. **Try a different USB port or cable.** USB cameras can fail silently if the port does not provide enough power or the cable is marginal. Move the camera to a different port, preferably USB 3.0 directly on the board rather than through a hub.
+
+  4. **Check camera permissions on macOS.** The first time BeeNut accesses the camera, macOS requires explicit permission. Open **System Settings → Privacy & Security → Camera** and confirm that BeeNut is listed and enabled. If it is not listed, launch the app once and check again.
+
+  <Tip>
+    If the preview is a solid colour rather than blank (e.g. all black or all green), the GStreamer pipeline opened the camera but is not receiving valid frames. This usually points to an unsupported resolution or framerate — try lowering `width`, `height`, or `fps` in the camera config.
+  </Tip>
+</Accordion>
+
+<Accordion title="Service not connecting / 'Waiting for backend socket'">
+  The Flutter UI connects to `beenutd` through the Unix socket defined by `controlSocket` in `config.json`. If the UI cannot find the socket, it displays a "Waiting for backend socket" message.
+
+  1. **Wait for the service to finish starting.** On a Raspberry Pi, `beenutd` can take 10–15 seconds to start and open the socket after boot. The kiosk UI polls the socket path and connects automatically once it appears — no manual refresh is needed.
+
+  2. **Check the service status on Linux.** Open a terminal (or SSH in) and run:
+
+     ```bash
+     sudo systemctl status beenut-service
+     ```
+
+     Look for `Active: active (running)`. If the service has stopped or failed, check the journal for the error:
+
+     ```bash
+     sudo journalctl -u beenut-service -n 50 --no-pager
+     ```
+
+  3. **Confirm the socket path matches.** The `controlSocket` value in `config.json` must be the same path that the service writes and the UI reads. The default is `/tmp/beenutd.sock`. If you changed this in `config.json`, ensure the systemd unit is also pointing to the same path.
+
+  4. **Restart the service manually.** If the service is stopped, restart it:
+
+     ```bash
+     sudo systemctl restart beenut-service
+     ```
+
+  <Tip>
+    On a fresh appliance install, the `beenut-kiosk-linux` systemd unit waits for the socket file to appear before launching the Flutter UI. If you see the kiosk UI but the connection never succeeds, the socket path in the two units may have drifted out of sync — compare them with `cat /lib/systemd/system/beenut-service.service` and `cat /lib/systemd/system/beenut-kiosk-linux.service`.
+  </Tip>
+</Accordion>
+
+<Accordion title="Count is unstable or flickering">
+  BeeNut uses temporal smoothing to gate the displayed count: the same count must appear in `stable_frames` consecutive frames before it is accepted. If the displayed count flickers or changes erratically, the model is producing inconsistent detections frame to frame.
+
+  1. **Increase `stable_frames`.** Open **Settings → Config → Counting** and raise `stable_frames` from the default of `5` to `8` or `10`. This requires the count to be consistent for more frames before updating the display, which smooths out momentary misfires.
+
+  2. **Raise the confidence threshold.** In **Settings → Config → Model**, increase `confidence_threshold` (e.g. from `0.45` to `0.55`). This discards lower-quality detections that are more likely to appear and disappear between frames.
+
+  3. **Improve lighting conditions.** Uneven or flickering illumination is the most common cause of unstable detection. Aim for even, diffuse illumination that eliminates shadows and specular reflections from shiny parts. The built-in light relay is designed for exactly this purpose — enable it in Settings and verify the relay is switching in the Test tab.
+
+  4. **Verify the tray is fully seated.** If you are using the tray sensor, a partially inserted tray can cause the sensor to toggle rapidly, which resets the count before it stabilises. Check the physical fit of the tray in the fixture and consider increasing `debounce_ms` in the GPIO config.
+
+  <Tip>
+    Use preview inspection mode (tap on the preview feed) to see bounding boxes and confidence scores on individual detections. If confidence values are hovering just above and below your threshold, a small upward adjustment will eliminate the noise without missing genuine objects.
+  </Tip>
+</Accordion>
+
+<Accordion title="Model not loading or class names missing">
+  BeeNut reads class names from the ONNX model metadata first and falls back to a `labels.txt` file. If the model does not load at all, the issue is usually a missing file or an unsupported output shape.
+
+  1. **Verify the model file exists in the correct directory.** The `beenutd` service looks for the ONNX file at the path specified by `model.model_path` in `config.json`. The recommended layout is:
+
+     ```text
+     service/models/<model-name>/
+     ├─ yolo.onnx
+     └─ labels.txt   (optional but recommended)
+     ```
+
+     Confirm the file is present and readable by the service user.
+
+  2. **Add a `labels.txt` file if class names are missing.** If detections appear but are all labelled `class_0`, `class_1`, etc., the ONNX file does not contain embedded class metadata. Create a `labels.txt` file in the same directory as `yolo.onnx`, with one class name per line in the same order as the model's training classes:
+
+     ```text
+     hex_bolt
+     washer
+     nut
+     ```
+
+  3. **Set `labels_mode` to `file` if auto-detection is unreliable.** In `config.json` under `model`, set `"labels_mode": "file"` and set `"labels_path"` to the absolute path of your `labels.txt`. This bypasses ONNX metadata parsing entirely.
+
+  4. **Check the model output shape.** BeeNut expects a YOLO output tensor of shape `1×N×6` (boxes-first) or `1×channels×boxes` (channels-first). Export your model with `opset >= 12` and verify the output dimensions using a tool like [Netron](https://netron.app). Re-export if the shape does not match.
+
+  <Warning>
+    Placing the model file at a path that is not readable by the `beenutd` system service (for example, inside your home directory with restrictive permissions) will cause a silent load failure. Copy the model to `/opt/beenut/models/` or adjust file permissions with `chmod o+r`.
+  </Warning>
+</Accordion>
+
+<Accordion title="GPIO not working on Raspberry Pi">
+  GPIO problems on Raspberry Pi usually come down to one of three things: the feature is not enabled in config, the firmware signature check failed, or the pin assignments do not match the wiring.
+
+  1. **Confirm GPIO is enabled in `config.json`.** Open **Settings → Config → GPIO** and verify that `enabled` is `true`. The field defaults to `false` on a fresh install.
+
+  2. **Verify the Pi firmware signature is detected.** Open **Settings → Status** and scroll to the GPIO section. It should report the active backend as `libgpiod` or `sysfs`. If it shows `mock`, the firmware signature check failed — confirm you are running on Raspberry Pi hardware and that `/proc/cpuinfo` contains the Pi model string.
+
+  3. **Check pin assignments against your wiring.** Pin numbers in `config.json` use BCM numbering, not physical board numbers. Cross-reference your wiring diagram with the BCM GPIO map for your Pi model. A mismatch here means the relay or sensor is connected to a different physical pin than BeeNut is driving.
+
+  4. **Install libgpiod if the backend falls back to sysfs unexpectedly.** On Raspberry Pi OS, install the tooling with:
+
+     ```bash
+     sudo apt install gpiod libgpiod-dev
+     ```
+
+     Then restart the service and check the backend reported in Settings → Status again.
+
+  5. **Check for safe mode.** If the service entered safe mode due to thermal warnings or errors, GPIO outputs are disabled even if `enabled` is `true`. Check **Settings → Status** for the thermal state and any active error messages. Resolve the underlying issue and clear safe mode by setting `"safe_mode": false` in `config.json`, then restart the service.
+
+  <Warning>
+    Do not set `BEENUT_GPIO_ALLOW=1` on a non-Pi device unless you have verified the GPIO chip and pin assignments match your hardware. Driving arbitrary pins on an unsupported board can damage connected peripherals.
+  </Warning>
+</Accordion>
+
+<Accordion title="Machine stuck in kiosk / black screen after appliance install">
+  Appliance profiles (`appliance-pi` and `appliance-linux`) intentionally take over the boot sequence and disable the standard desktop. If something goes wrong during setup or a configuration change causes the kiosk UI not to launch, the screen goes black with no way to recover from within the UI.
+
+  1. **SSH into the device.** Appliance hardening disables local TTY login, but SSH should still be reachable if the network is up. Connect from another machine on the same network.
+
+  2. **Run the recovery script.**
+
+     ```bash
+     sudo beenut-recover-desktop
+     ```
+
+     Alternatively:
+
+     ```bash
+     sudo beenut-setup --recover-desktop
+     ```
+
+     The recovery script stops the BeeNut kiosk and service units, disables the kiosk service from the boot startup registry, re-enables the system's standard display manager (GDM, SDDM, or LightDM), restores `graphical.target`, and reboots the device into the normal desktop environment.
+
+  3. **See the Recovery guide for full steps.** If SSH is also unreachable, boot from a USB drive or SD card and chroot into the installation to run the recovery commands manually. See the [Recovery guide](/deployment/recovery) for the complete procedure.
+
+  <Tip>
+    Never apply an appliance profile on a personal development machine. Use a dedicated Raspberry Pi or a VM that you are comfortable wiping. The profile changes login shells, disables SSH, and removes TTY access — recovery without a secondary boot device is difficult.
+  </Tip>
+</Accordion>
+
+<Accordion title="Installer fails or package upgrade error">
+  The BeeNut Linux installer script and `.deb` package are both designed to be safe to run multiple times on the same device.
+
+  1. **Re-run the installer to repair the installation.** The installer is idempotent: running it again downloads the matching release package, verifies `checksums.sha256`, and lets `apt` upgrade or repair the installed package without side effects. If a previous install was interrupted, re-running it from scratch is the correct first step.
+
+     ```bash
+     curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh | sudo bash
+     ```
+
+  2. **Verify `checksums.sha256` if the download may be corrupt.** Each release ships a `checksums.sha256` file alongside the package artifacts. Download the checksum file separately and verify it against the package before installing:
+
+     ```bash
+     sha256sum --check checksums.sha256
+     ```
+
+     If the check fails, the download is corrupt — delete the file and download again from the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases).
+
+  3. **Check available disk space.** BeeNut installs to `/opt/beenut`. If the partition containing `/opt` is full, `apt` will fail silently or with a cryptic error. Check free space:
+
+     ```bash
+     df -h /opt
+     ```
+
+     Free at least 500 MB before re-running the installer.
+
+  <Tip>
+    To install a specific release version or profile rather than the latest, pass environment variables to the installer:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+      | sudo env BEENUT_VERSION=v0.1.0 BEENUT_PROFILE=appliance-pi bash
+    ```
+  </Tip>
+</Accordion>
+
+</AccordionGroup>

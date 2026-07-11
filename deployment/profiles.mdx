@@ -1,0 +1,59 @@
+---
+title: "BeeNut Install Profiles: Appliance, Desktop, and Dev"
+sidebarTitle: "Install Profiles"
+description: "Choose the right BeeNut install profile for your use case: appliance-pi, appliance-linux, desktop, or dev-service."
+---
+
+Install profiles are post-install configuration modes that tell BeeNut how to integrate with the host operating system. After the `.deb` package is installed, the `beenut-setup` utility applies a profile that determines whether BeeNut takes over the display and boot sequence, runs as a normal desktop application, or starts as a headless background service. Choosing the right profile before you run setup is the single most consequential configuration decision you will make during deployment.
+
+## Available Profiles
+
+Each profile targets a specific deployment scenario. The table below summarises the graphical target each profile uses and the recommended use case.
+
+| Profile | Graphical Target | Use Case |
+|---|---|---|
+| `appliance-pi` | Direct DRM/KMS via flutter-pi | Raspberry Pi kiosk — maximum performance, no display server overhead |
+| `appliance-linux` | Cage Wayland compositor on TTY7 | Generic Linux kiosk on AMD64 or non-Pi ARM64 hardware |
+| `desktop` | Standard desktop (X11/Wayland) | Normal app install on a shared workstation or development machine |
+| `dev-service` | None (headless) | Backend-only daemon for testing, scripting, or remote diagnostics |
+
+### Profile Details
+
+**`appliance-pi`** — Designed for Raspberry Pi 4 and 5. The setup utility disables the desktop environment, configures autologin, and boots BeeNut directly on the Linux DRM/KMS framebuffer using the `flutter-pi` runtime. This profile delivers the lowest-latency preview and inference path on Pi hardware.
+
+**`appliance-linux`** — Designed for general-purpose Linux kiosks. The setup utility installs the lightweight Cage Wayland compositor, binds the display to TTY7, and configures BeeNut to start full-screen on boot via systemd. Use this profile on AMD64 kiosk machines or non-Pi SBCs.
+
+**`desktop`** — Installs BeeNut as a standard application with a launcher entry under `/usr/share/applications`. The host desktop environment and display manager are left untouched. Use this profile on shared workstations where other applications must remain accessible.
+
+**`dev-service`** — Starts only the `beenutd` backend daemon with no graphical frontend. Use this profile when you need to test the counting service, exercise the GPIO subsystem, or run diagnostics over a remote connection without a display.
+
+## Applying a Profile
+
+After installing the `.deb` package, run `beenut-setup` interactively. The tool detects your hardware and presents a profile selection menu:
+
+```bash
+sudo beenut-setup
+```
+
+To skip the interactive menu and apply a profile directly, pass the `--profile` flag:
+
+```bash
+sudo beenut-setup --profile appliance-pi
+```
+
+You can also supply the profile at install time using the `BEENUT_PROFILE` environment variable, which the Linux installer passes directly to `beenut-setup` after package installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+  | sudo env BEENUT_PROFILE=desktop bash
+```
+
+The Linux installer is idempotent. Running it again on an already-configured machine downloads the matching release package, verifies `checksums.sha256`, upgrades or repairs the installed package via `apt`, and reapplies the selected profile.
+
+<Warning>
+The `appliance-pi` and `appliance-linux` profiles intentionally take over boot. They disable the host display manager, restrict shell access, silence TTY consoles, and configure the system to boot directly into the BeeNut kiosk. **Do not apply an appliance profile on a personal development machine or any machine where you need normal desktop access after reboot.** If your display goes black after applying an appliance profile, SSH into the device and run `sudo beenut-recover-desktop` to restore the standard desktop. See the [Recovery](/deployment/recovery) page for the full procedure.
+</Warning>
+
+## Changing Profiles Later
+
+You can switch profiles at any time by running `beenut-setup` again with a different `--profile` value. The setup utility is safe to re-run — it upgrades or replaces the previous profile configuration rather than stacking changes on top of it. If you are switching from an appliance profile to `desktop` or `dev-service`, use the recovery path first to ensure the display manager is restored before selecting the new profile.

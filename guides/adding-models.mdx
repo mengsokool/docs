@@ -1,0 +1,104 @@
+---
+title: "Add a Custom YOLO ONNX Model to BeeNut"
+sidebarTitle: "Adding Models"
+description: "Learn how to add your own YOLO ONNX model to BeeNut, configure class labels, and select it from the settings panel."
+---
+
+BeeNut runs inference using ONNX Runtime and accepts any YOLO model exported to the ONNX format. You supply the model — BeeNut does not bundle sample weights. This page walks you through placing your model files in the correct location, creating an optional labels file, and selecting the model from the settings panel.
+
+## Supported model formats
+
+BeeNut supports two ONNX output shapes:
+
+- **End-to-End NMS-free YOLO** — output shape `(1, num_boxes, 6)`. Each row contains `[x1, y1, x2, y2, score, classId]`. Non-maximum suppression is handled inside the model graph, so the engine skips CPU-bound NMS entirely. This is the faster path.
+- **Standard YOLO v8 / v11** — output shape `(1, channels, boxes)` where channels = `4 + num_classes`. BeeNut applies its own IoU-based NMS in memory.
+
+Both formats work with the same file-placement and settings workflow described below.
+
+## Model directory structure
+
+Place your model files under the `service/models/` directory. On a Linux or Raspberry Pi install, the full path is `/opt/beenut/service/models/`.
+
+**Minimum — ONNX file only:**
+
+```text
+service/models/<model-name>/
+└─ yolo.onnx
+```
+
+**Recommended — with labels file:**
+
+```text
+service/models/<model-name>/
+├─ yolo.onnx
+└─ labels.txt
+```
+
+BeeNut first reads class names from the ONNX model's internal metadata. If the metadata does not include class names, BeeNut falls back to `labels.txt` in the same directory.
+
+### labels.txt format
+
+Create a plain text file with one class name per line. The line number (zero-indexed) must match the class index in your ONNX model output.
+
+```text
+Nut
+Washer
+Bolt
+Screw
+```
+
+If your model outputs class index `0`, BeeNut maps it to `Nut`. Index `1` maps to `Washer`, and so on.
+
+<Note>
+BeeNut does not bundle sample model weights. You must supply your own YOLO ONNX file. Export your model from Ultralytics YOLOv8 or v11 using `model.export(format="onnx")`.
+</Note>
+
+## Add a model using the Settings UI
+
+<Steps>
+  <Step title="Open Settings">
+    On the main kiosk screen, tap the **Settings** button (gear icon) in the bottom-left corner to open the settings sidebar.
+  </Step>
+
+  <Step title="Go to the Model tab">
+    In the settings sidebar, tap the **Model** tab. You will see the current ONNX model path, the labels mode, and the advanced tuning controls.
+  </Step>
+
+  <Step title="Select the runtime">
+    Under **Runtime**, choose **ONNX**. This activates the ONNX Runtime engine and shows the ONNX model path field. (Choose **Mock** only when testing the UI without a real model.)
+  </Step>
+
+  <Step title="Browse for your model file">
+    In the **Model File** section, tap **Select Model**. A file picker dialog opens. Navigate to your model directory — for example, `/opt/beenut/service/models/my-model/` — and select `yolo.onnx`.
+  </Step>
+
+  <Step title="Configure labels (optional)">
+    Under **Labels**, choose one of:
+    - **Auto detect** — BeeNut reads class names from ONNX metadata or falls back to a `labels.txt` in the same directory as the model. Choose this if your ONNX file embeds class names or you placed `labels.txt` next to the model.
+    - **Custom file** — A second path field appears. Tap **Select Labels** and choose your `labels.txt` file if it lives somewhere other than the model directory.
+  </Step>
+
+  <Step title="Adjust confidence threshold">
+    In **Advanced Tuning**, adjust the **Confidence** slider. The default is `0.45`. Increase it to reduce false positives; lower it if you are missing valid detections. The **NMS** threshold (default `0.5`) controls how aggressively overlapping boxes are merged for standard YOLO models.
+  </Step>
+
+  <Step title="Save and verify">
+    Tap **Save**. BeeNut validates the configuration and hot-reloads the model without restarting the app or the service. Check the **Status** tab to confirm the model shows as connected and the **Model Labels** list reflects your class names.
+  </Step>
+</Steps>
+
+## Hot-reload
+
+After you save the model configuration, BeeNut instructs the `beenutd` service to reload the model in place. You do not need to restart the app, the service, or the device. The count panel will briefly show a loading state while the new model initializes, then resume inference automatically.
+
+## Confidence threshold guidance
+
+The confidence threshold filters raw detections before they enter the stabilization pipeline. A detection is only counted if its score exceeds this value.
+
+| Threshold | Effect |
+|---|---|
+| `0.30 – 0.40` | More sensitive; may pick up partial or obscured parts, but can produce false positives. |
+| `0.45` | Default — good starting point for most industrial parts on a static tray. |
+| `0.60 – 0.80` | More conservative; reduces noise from reflections or overlapping parts, but may miss low-confidence detections. |
+
+Tune the threshold for your specific parts and lighting conditions by switching to preview inspection mode on the main kiosk screen and observing which detections are shown.

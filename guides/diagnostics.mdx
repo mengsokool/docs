@@ -1,0 +1,154 @@
+---
+title: "Run Diagnostics and Monitor BeeNut Health"
+sidebarTitle: "Diagnostics"
+description: "Use BeeNut's built-in diagnostics to check camera connectivity, model status, GPIO state, and system resource usage in real time."
+---
+
+BeeNut includes built-in diagnostic tools to help you confirm the system is healthy, track down hardware issues, and verify your configuration before a production run. You can access all diagnostics from the Settings panel without connecting a laptop or opening a terminal.
+
+## Real-time system health (Status tab)
+
+The **Settings → Status** tab gives you a live view of the machine's health while it is running.
+
+**Resource usage chart** — The chart displays CPU and RAM usage for two processes side by side:
+
+- **Daemon CPU / RAM** — Resources consumed by the `beenutd` backend service (camera capture, inference, GPIO, counting).
+- **Flutter CPU / RAM** — Resources consumed by the kiosk UI process.
+
+The chart updates continuously in real time as long as the Status tab is open.
+
+**Thermal monitoring** — The thermal row shows:
+
+- The current thermal state: `normal`, `warning`, `throttled`, or `critical`.
+- The CPU temperature in degrees Celsius.
+- The **effective inference FPS** — the actual inference rate after thermal throttling is applied. On Raspberry Pi hardware, the service automatically reduces inference frequency when the CPU runs hot to protect the device.
+
+**Service connection** — The Connection Diagnostics section shows whether the Flutter UI is connected to the `beenutd` Unix socket. A green **connected** indicator means the control channel is up. A red **offline** indicator means the service is not reachable.
+
+<Tip>
+Keep the Status tab open when you first bring up a new installation. It gives you immediate feedback on camera FPS, inference latency, and thermal state without needing any command-line tools.
+</Tip>
+
+## Running a targeted diagnostic
+
+For deeper checks, use the diagnostic tools in **Settings → Test**.
+
+<Steps>
+  <Step title="Open Settings → Test">
+    Tap the **Settings** button on the main kiosk screen, then select the **Test** tab.
+  </Step>
+
+  <Step title="Choose a diagnostic target">
+    The Test tab offers three diagnostic targets:
+
+    - **Camera Pipeline** — Checks the active camera pipeline, capture FPS, and preview stream capabilities.
+    - **AI Runtime** — Checks model runtime readiness and reports the latest inference latency and throughput metrics.
+    - **GPIO Backend** — Checks the tray sensor and relay backend state, GPIO chip availability, and the active backend name.
+  </Step>
+
+  <Step title="Tap the test button">
+    Tap the action button next to the target you want to check: **Test Camera**, **Benchmark**, or **Test GPIO**. The service runs the diagnostic asynchronously.
+  </Step>
+
+  <Step title="Read the result">
+    After the diagnostic completes, the **Last Diagnostic** row updates to show:
+    - The target name (e.g., `camera`, `model`, or `gpio`).
+    - An **ok** (green checkmark) or **fail** (red error icon) status.
+    - A short **message** summarizing the outcome.
+    - **Detail text** with the raw diagnostic output from the service.
+
+    A green ok means the subsystem passed its checks. A red fail means something needs attention — read the detail text for the specific error.
+  </Step>
+</Steps>
+
+<Note>
+The diagnostic results reflect the state of the `beenutd` service at the moment the test runs. If you change the model or camera configuration and then run a diagnostic, save your configuration first so the service reloads before the test executes.
+</Note>
+
+## Configuration validation
+
+BeeNut validates your configuration every time you save. Validation runs automatically — you do not need to trigger it manually. The result appears in the **Status** tab under the Connection Diagnostics section:
+
+| Validation result | Meaning |
+|---|---|
+| `ready` | Configuration is valid with no warnings or errors. |
+| `N warnings` | Configuration is usable but has potential issues (e.g., a GPIO pin conflict or an unusual threshold value). The warning messages are shown below the row. |
+| `N errors` | Configuration has problems that will prevent correct operation. Review and fix the listed errors before running a count. |
+
+If there are warnings or errors, the detail text below the validation row lists up to three messages. Open the relevant settings tab to resolve them.
+
+## Exporting a diagnostics bundle
+
+If you need to report an issue or send system information to support, use the **Export Diagnostics Bundle** action in the Test tab.
+
+Tap **Export** to collect a redacted snapshot of:
+- The current runtime configuration (with sensitive paths masked).
+- Recent service logs.
+- Hardware capabilities as detected by `beenutd`.
+- The most recent diagnostic events.
+
+The bundle is saved to a file on the device. The artifact path is shown in the **Diagnostics Bundle** row after the export completes.
+
+## Field validation script (Raspberry Pi)
+
+On Raspberry Pi appliance installs, you can run a field validation script from the terminal to collect structured evidence that the device booted and entered kiosk mode correctly. This is useful for QA sign-off or commissioning records.
+
+```bash
+sudo /opt/beenut/scripts/pi-field-validation.sh \
+  --operator "QA station 1" \
+  --confirm-boot-preview
+```
+
+The script checks that `beenutd` is running, the preview is active, and the kiosk has entered a healthy state. It writes a timestamped validation record that includes the operator name, device identity, and test results.
+
+## Troubleshooting: service not connecting
+
+If the Status tab shows the service as **offline**, work through these checks in order:
+
+<Steps>
+  <Step title="Confirm beenutd is running">
+    Open a terminal on the device and check the service process:
+
+    ```bash
+    systemctl status beenutd
+    ```
+
+    If the service is stopped or failed, start it:
+
+    ```bash
+    sudo systemctl start beenutd
+    ```
+  </Step>
+
+  <Step title="Check the control socket">
+    BeeNut communicates over a Unix socket. Confirm the socket file exists:
+
+    ```bash
+    ls -la /tmp/beenutd.sock
+    ```
+
+    If the socket is missing, the service did not start correctly. Check the service logs:
+
+    ```bash
+    journalctl -u beenutd -n 50 --no-pager
+    ```
+  </Step>
+
+  <Step title="Check the socket path in Settings">
+    Open **Settings → Config** and verify that the **Control socket** path matches the socket the service is actually using. The default is `/tmp/beenutd.sock`. If a custom path was set and the file does not exist at that path, update the setting to match the running socket location.
+  </Step>
+
+  <Step title="Restart the service">
+    If the socket exists but the UI still shows offline, restart the service and wait a few seconds for the socket to become ready:
+
+    ```bash
+    sudo systemctl restart beenutd
+    ```
+
+    The UI reconnects automatically within a few seconds.
+  </Step>
+</Steps>
+
+<Tip>
+On a fresh install, run `sudo systemctl enable beenutd` to ensure the service starts automatically on every boot, including after a power failure.
+</Tip>

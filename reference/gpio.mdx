@@ -1,0 +1,130 @@
+---
+title: "GPIO Reference: Tray Sensor and Light Relay on Raspberry Pi"
+sidebarTitle: "GPIO"
+description: "Configure BeeNut's GPIO support on Raspberry Pi for tray presence detection and light relay control, including pin assignments and test procedures."
+---
+
+BeeNut can drive two GPIO lines on Raspberry Pi hardware: a tray presence sensor that triggers automatic count resets and a light relay that controls an illumination LED. Both lines are managed by the `beenutd` service through a dual-backend GPIO controller that selects the best available driver at startup. This page explains how to enable and configure GPIO, how to test it from the UI, and what to expect in safe mode.
+
+---
+
+## Platform Support
+
+GPIO hardware control is only available on Raspberry Pi boards. On all other hardware, BeeNut runs a **virtual mock adapter** that simulates GPIO transitions in software — no real pins are driven.
+
+| Platform | GPIO Behaviour |
+|---|---|
+| Raspberry Pi (any model) | Full hardware control via libgpiod or sysfs |
+| Non-Pi Linux (`BEENUT_GPIO_ALLOW=1` set) | Attempts sysfs exports on the host kernel |
+| Non-Pi Linux (default) | Virtual mock adapter — no hardware output |
+| macOS | Virtual mock adapter — no hardware output |
+
+The service detects the Raspberry Pi at startup by checking the Pi firmware signature in `/proc`. If the signature matches, it uses the real hardware adapter. If not, it checks for the `BEENUT_GPIO_ALLOW=1` environment variable before falling back to the mock.
+
+---
+
+## GPIO Functions
+
+### Tray Presence Sensor
+
+The tray sensor detects whether a parts tray is physically present under the camera. BeeNut monitors the configured input pin continuously and reacts immediately when the tray is removed:
+
+- **Tray inserted** → BeeNut enables the active count session and begins stable-frame accumulation.
+- **Tray removed** → BeeNut resets the current count to zero instantly, regardless of whether a stable result was reached.
+
+This gives operators a natural, hands-free workflow: place the tray, wait for a stable count, remove the tray to confirm and reset.
+
+### Light Relay
+
+The light relay controls an illumination LED or lamp connected to a relay module. You can toggle the light from **Settings → Test** tab without writing to `config.json`. The relay state is also observable in real time in the Test tab so you can confirm the hardware is responding.
+
+---
+
+## Backend Detection Logic
+
+When `beenutd` starts, it walks this decision tree to choose a GPIO backend:
+
+```text
+Does RPi firmware signature match in /proc?
+  ├─► YES ──► Use Real Hardware Adapter
+  │            ├─► libgpiod  (modern ARM64 kernels, recommended)
+  │            └─► sysfs     (fallback for older kernels)
+  └─► NO  ──► Is BEENUT_GPIO_ALLOW=1 set?
+               ├─► YES ──► Attempt sysfs exports on host kernel
+               └─► NO  ──► Virtual Mock Adapter (no hardware output)
+```
+
+**libgpiod** is the preferred backend for Raspberry Pi 4 and Pi 5. It communicates with `gpiochip0` using the `gpioget`/`gpioset` command-line tools from the libgpiod package.
+
+**sysfs** is the traditional fallback. It exports pin registers through `/sys/class/gpio` and verifies line readiness before reporting the backend as ready.
+
+**Virtual mock** safely simulates tray and relay events for developers working on macOS or a standard Linux workstation. The mock backend is also what runs if `safe_mode` is active.
+
+---
+
+## Configuring GPIO in `config.json`
+
+All GPIO settings live under the `gpio` key. Enable GPIO by setting `enabled` to `true`, then set the correct BCM pin numbers for your hardware wiring.
+
+```json
+{
+  "gpio": {
+    "enabled": true,
+    "backend": "auto",
+    "chip": "gpiochip0",
+    "tray_sensor_pin": 17,
+    "relay_pin": 27,
+    "active_low": false,
+    "debounce_ms": 80
+  }
+}
+```
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | bool | `false` | Master switch. Set to `true` to activate hardware GPIO. |
+| `backend` | string | `"auto"` | Driver selection: `auto`, `libgpiod`, `sysfs`, or `mock`. |
+| `chip` | string | `"gpiochip0"` | GPIO chip name. On Pi 4/5, use `gpiochip0`. |
+| `tray_sensor_pin` | int | `17` | BCM pin number for the tray presence sensor input. |
+| `relay_pin` | int | `27` | BCM pin number for the light relay output. |
+| `active_low` | bool | `false` | Invert pin logic for active-low relay modules. |
+| `debounce_ms` | int | `80` | Debounce interval (ms) for the tray sensor. |
+
+Pin numbers use the **BCM (Broadcom)** numbering scheme, not the physical board pin numbers. Refer to your Pi's GPIO pinout diagram to confirm which physical header pin corresponds to BCM 17 and BCM 27.
+
+---
+
+## Developer Flag: `BEENUT_GPIO_ALLOW=1`
+
+If you want to test GPIO behaviour on a non-Pi Linux machine (for example, a development VM or an SBC that does not expose the Raspberry Pi firmware signature), set the environment variable `BEENUT_GPIO_ALLOW=1` before starting `beenutd`:
+
+```bash
+sudo BEENUT_GPIO_ALLOW=1 /opt/beenut/bin/beenutd
+```
+
+<Warning>
+  `BEENUT_GPIO_ALLOW=1` bypasses the Pi hardware check and attempts real sysfs GPIO exports on whatever device is present. Use this only on hardware you have wired correctly for BeeNut. Driving arbitrary GPIO lines on an unsupported board can damage peripherals or the host device.
+</Warning>
+
+---
+
+## Testing GPIO from the UI
+
+Once GPIO is enabled and the service is running, verify your wiring from the **Settings → Test** tab without modifying any configuration files:
+
+1. Open the kiosk UI and navigate to **Settings → Test**.
+2. Use the **Light** toggle to switch the relay pin between high and low. Your relay module should click and the illumination LED should turn on or off.
+3. Use the **Tray Present / Tray Absent** buttons to simulate tray sensor transitions and confirm that the count resets as expected.
+4. Check the GPIO status line — it reports the current backend (`libgpiod`, `sysfs`, or `mock`) and whether each line is ready.
+
+You can also inspect the live GPIO state in **Settings → Status** under the GPIO section, which shows the backend name, the current light state, and the tray presence reading in real time.
+
+---
+
+## Safe Mode and GPIO Outputs
+
+<Warning>
+  When BeeNut enters safe mode, all GPIO outputs are disabled immediately. The relay is de-energised and the tray sensor stops triggering count resets. Safe mode is activated automatically when the service detects thermal throttling warnings or process-level communication failures. Check **Settings → Status** for the active thermal state and any error messages before re-enabling GPIO. You can also set `"safe_mode": false` in `config.json` manually once the underlying issue is resolved — but confirm the hardware is in a safe state first.
+</Warning>
+
+Safe mode is designed to protect connected hardware from runaway outputs if the software stack encounters an unexpected error. The `safe_mode` field in `config.json` reflects the current state; BeeNut may set it to `true` at runtime without a manual edit.

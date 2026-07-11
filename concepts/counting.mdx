@@ -1,0 +1,56 @@
+---
+title: "How BeeNut Counts: Stability and Gating Explained"
+sidebarTitle: "Counting"
+description: "Learn how BeeNut produces stable counted totals from live video using confidence filtering, temporal smoothing, and tray-gate reset logic."
+---
+
+BeeNut's displayed count is not simply the number of objects the AI detected in the most recent camera frame. Raw detections naturally vary from moment to moment — a part shifting slightly, a glare on a shiny surface, or two objects briefly overlapping can all cause the instantaneous count to jump by one or two for just a frame. If BeeNut showed you that raw number, the display would flicker constantly and you could never be sure when to trust it. Instead, BeeNut runs every detection through a three-stage stabilization pipeline before the count reaches your screen.
+
+## Why Counts Can Fluctuate
+
+Even with a well-trained model and good lighting, the AI sees a slightly different image every frame. Camera sensor noise, reflections, shadows cast by neighboring parts, and motion blur during tray placement all introduce momentary variation. These are not errors in the model — they are a natural consequence of analyzing a live video stream. The stabilization pipeline exists specifically to absorb this variation and give you a number you can act on with confidence.
+
+## The Count Pipeline
+
+<Steps>
+  <Step title="Confidence Filter">
+    Every object the model finds comes with a confidence score between 0 and 1. BeeNut discards any detection that falls below the configured confidence threshold (default: 0.45). This step removes objects the model is uncertain about before they ever enter the counting logic. You can raise or lower this threshold in Settings to tune how strict the filter is.
+  </Step>
+  <Step title="Temporal Smoothing">
+    After filtering, BeeNut adds the surviving detection count to a short sliding window of recent frame results. By default this window holds the last 5 frames. BeeNut calculates a lower-median value from that window — sorting the recorded counts and taking the value at the lower midpoint — which means a brief spike caused by a transient detection or a momentary occlusion cannot push the displayed count upward on its own. The result is a smoothed count that only moves when the evidence is consistent across multiple frames.
+  </Step>
+  <Step title="Tray Gate">
+    If your hardware includes a physical tray presence sensor (available on Raspberry Pi), BeeNut uses it as a master reset. The moment you lift the tray to remove counted parts, the sensor triggers and the count drops to zero instantly — the full smoothing history is cleared and counting restarts fresh when you put a new tray down. This reset bypasses the stabilization window entirely, so you never have to wait for the display to catch up.
+  </Step>
+</Steps>
+
+## The READY State
+
+Once the smoothed count has remained the same for the configured number of consecutive frames, BeeNut considers the count settled and the display turns **green**. This is the READY state — your signal that the number on screen is stable and trustworthy, not mid-transition.
+
+While the count is still settling after a tray placement or a significant change in detections, the display remains in its neutral state. The green READY indicator only appears when BeeNut is confident the value has stopped moving.
+
+## Configurable Settings
+
+Two settings directly control how quickly and aggressively the stabilization pipeline works:
+
+| Setting | What it controls | Default |
+|---|---|---|
+| **Confidence threshold** | Minimum model confidence for a detection to be counted | 0.45 |
+| **Stable frames** | Number of consecutive frames the count must hold before READY | 5 |
+
+Both are available in the Settings panel of the kiosk interface.
+
+## Tuning Tips
+
+<Tip>
+**If the count seems to flicker or change too easily**, try increasing the **stable frames** value. Requiring more consecutive frames of agreement before the count updates makes the display less sensitive to momentary variation. Start by adding 2–3 frames and observe the result.
+</Tip>
+
+<Tip>
+**If BeeNut is missing objects you expect it to count**, try lowering the **confidence threshold** slightly. A value between 0.30 and 0.40 will let the model report objects it is less certain about. Be aware that this can also increase noise, so adjust in small steps.
+</Tip>
+
+<Tip>
+**Check your lighting first.** Most count instability comes from uneven illumination, strong glare on shiny surfaces, or shadows cast by parts at the tray edges. Consistent, diffuse lighting over the entire tray surface will improve stability more reliably than any software setting. If your setup includes a light relay, use the **Test** tab in Settings to toggle the illumination LED and compare results.
+</Tip>

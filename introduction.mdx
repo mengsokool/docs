@@ -1,0 +1,65 @@
+---
+title: "BeeNut: Open-Source Computer-Vision Counting Kiosk"
+sidebarTitle: "Introduction"
+description: "BeeNut turns any machine or Raspberry Pi into a dedicated counting appliance using your own YOLO ONNX model and a touch-friendly kiosk interface."
+---
+
+BeeNut is an open-source computer-vision counting kiosk that turns a standard machine, Raspberry Pi, or single-board computer into a dedicated object-counting appliance. You bring your own YOLO ONNX model, map its labels to the targets you care about, and BeeNut takes care of the rest — live camera preview, on-device inference, stable counted totals, and a clean touch-friendly interface ready for shop floors, labs, or any environment where physical objects need to be counted accurately and continuously.
+
+## The Problem BeeNut Solves
+
+Counting physical objects by hand is slow, error-prone, and hard to scale. Off-the-shelf counting systems lock you into proprietary hardware and models you cannot customize. BeeNut gives you the full stack in one open-source package: a camera reads the scene, a YOLO model you trained and own performs the detection, and a purpose-built kiosk UI presents the results to the operator — no cloud dependency, no license fees, no black-box firmware.
+
+## Who Uses BeeNut
+
+BeeNut is designed for **operators and technicians** who work directly at counting stations. A typical deployment places a touch-screen monitor next to a camera pointed at a counting tray or conveyor. The operator interacts with the kiosk UI to select a counting target, review the live preview with bounding boxes, and read the stable counted total. No programming knowledge is required to operate BeeNut once it is installed and configured.
+
+## Key Capabilities
+
+- **Live camera preview** — GStreamer drives a native preview pipeline that streams frames to the Flutter UI through shared memory, DMA-BUF, or IOSurface with minimal latency.
+- **YOLO ONNX inference** — Bring any YOLO ONNX model you have trained. BeeNut reads class names from the ONNX metadata or a companion `labels.txt` file and hot-reloads configuration changes without restarting the app.
+- **Stable counted totals** — Confidence filtering and temporal smoothing gate the raw detection stream so that the number shown to the operator reflects a reliable, noise-reduced count rather than raw frame-by-frame fluctuations.
+- **Target catalog** — Map model labels to named targets and configure per-target settings through the kiosk UI, including a virtual keyboard for touch-screen operators.
+- **GPIO support** — Connect tray sensors and light relays directly to Raspberry Pi GPIO pins. BeeNut handles hardware triggers and provides mock fallbacks so you can develop and test without physical hardware attached.
+- **Multi-platform packaging** — Install BeeNut from a prebuilt `.deb` package on Raspberry Pi or Linux, or from a `.dmg` or `.app` bundle on macOS. A one-command Linux installer script handles everything from download to boot configuration.
+
+## How BeeNut Works
+
+BeeNut separates the performance-sensitive media path from the operator interface. The native background service, **`beenutd`**, owns the camera, runs the GStreamer pipeline, executes ONNX inference, manages GPIO, and communicates counts and diagnostics to the UI over a Unix socket using a JSON-lines protocol. The **Flutter kiosk UI** renders the operator experience — live preview texture, counted totals, target selection, settings panels, and diagnostics — without touching the media path directly. This split keeps inference fast and the UI responsive even on Raspberry Pi hardware.
+
+```text
+camera source
+  -> GStreamer pipeline (native beenutd service)
+      -> preview branch  : shared memory / DMA-BUF / IOSurface -> Flutter texture
+      -> AI branch       : sampled RGB frames -> ONNX Runtime YOLO -> NMS -> counts
+      -> hardware branch : tray sensor and light relay GPIO
+
+  [JSON-lines control protocol over Unix socket]
+
+Flutter UI
+  -> kiosk / counting interface
+  -> settings and diagnostics
+  -> native preview texture
+```
+
+## Supported Platforms
+
+| Platform | Package | Best For |
+|---|---|---|
+| Raspberry Pi / Debian ARM64 | `beenut_*_arm64.deb` | Pi or SBC booting directly into the BeeNut kiosk |
+| Linux desktop AMD64 | `beenut_*_amd64.deb` | Standard Linux workstation or industrial PC install |
+| macOS (installer) | `BeeNut-macos-*.dmg` | Drag-to-Applications macOS install |
+| macOS (app bundle) | `BeeNut-macos-*.app.zip` | Zipped `.app` for manual placement or testing |
+
+Prebuilt packages for every supported platform are published on the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases). Each release includes a `checksums.sha256` file and a JSON release manifest for field verification.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install BeeNut on Raspberry Pi, Linux, or macOS using prebuilt packages or the one-command installer script.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Drop in your YOLO ONNX model, configure your first target, and start counting in minutes.
+  </Card>
+</CardGroup>

@@ -1,0 +1,85 @@
+---
+title: "Deploy BeeNut as a Raspberry Pi Kiosk Appliance"
+sidebarTitle: "Raspberry Pi"
+description: "Install and configure BeeNut on Raspberry Pi 4 or 5 as a dedicated counting appliance using the appliance-pi profile and flutter-pi runtime."
+---
+
+BeeNut runs as a dedicated counting appliance on Raspberry Pi 4 and Pi 5. The `appliance-pi` install profile disables the desktop environment and boots the device directly into the BeeNut kiosk using `flutter-pi`, which renders on the Linux DRM/KMS framebuffer without a Wayland or X11 display server. The result is a locked-down, single-purpose device that starts BeeNut automatically on every power cycle.
+
+## Supported Hardware
+
+- **Boards**: Raspberry Pi 4 Model B (any RAM variant), Raspberry Pi 5
+- **Architecture**: ARM64
+- **OS**: Raspberry Pi OS (Debian-based), 64-bit; any up-to-date Debian ARM64 image
+
+Connect a USB webcam or CSI camera module before running the installer. BeeNut detects available camera sources during first launch.
+
+<Warning>
+The `appliance-pi` profile takes over boot. After the installer completes and the device reboots, the display goes directly into BeeNut kiosk mode — the standard Raspberry Pi desktop will no longer appear. The profile also disables TTY consoles and SSH shell access as part of appliance hardening. **Do not apply this profile on a Pi you use for general development.** If you need to recover the device, see the [Recovery](/deployment/recovery) page.
+</Warning>
+
+## Install BeeNut
+
+<Steps>
+  <Step title="Run the one-command installer">
+    From a terminal on the Pi (or over an SSH session before appliance hardening locks it out), run the Linux bootstrapper with the `appliance-pi` profile:
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+      | sudo env BEENUT_PROFILE=appliance-pi bash
+    ```
+
+    The installer downloads the latest `beenut_*_arm64.deb` release package, verifies `checksums.sha256`, installs the package with `apt`, and then runs `beenut-setup --profile appliance-pi` to apply appliance hardening.
+  </Step>
+
+  <Step title="Wait for setup to complete">
+    The setup utility disables the desktop environment, configures passwordless autologin, and registers the `beenut-service.service` and `beenut-kiosk.service` systemd units to start at boot. You will see log output confirming each step. The process typically takes under two minutes.
+  </Step>
+
+  <Step title="Reboot the device">
+    When setup finishes, the installer prompts you to reboot. Accept the prompt or reboot manually:
+
+    ```bash
+    sudo reboot
+    ```
+
+    The Pi will come back up directly into the BeeNut kiosk. You will not see a login screen or desktop.
+  </Step>
+</Steps>
+
+## What the appliance-pi Profile Installs
+
+After a successful install, the following components are present on the device:
+
+- `/opt/beenut/bin/beenutd` — the native C++ daemon that manages the camera pipeline, ONNX inference, counting logic, and GPIO
+- `/opt/beenut/share/beenut-ui/` — the `flutter-pi` UI bundle rendered directly on the DRM/KMS framebuffer
+- `/opt/beenut/scripts/` — field validation and utility scripts
+- `beenut-service.service` and `beenut-kiosk.service` — systemd units that start the daemon and kiosk on boot
+
+## Connecting Hardware
+
+### Camera
+
+Plug in a USB webcam or attach a CSI camera module (Camera Module 2 or 3, or a compatible third-party module). BeeNut enumerates available devices on startup and uses the camera selected in Settings. No additional drivers are required for most USB cameras; CSI modules require the `libcamera` stack to be present on your OS image.
+
+### GPIO — Tray Sensor and Light Relay
+
+BeeNut supports a tray presence sensor (digital input) and a light relay (digital output) for illumination control. Connect your sensor and relay to the Pi GPIO header. The specific pin numbers are configurable in BeeNut's Settings panel under **Hardware → GPIO**.
+
+On Pi hardware, BeeNut automatically uses the `libgpiod` or sysfs GPIO backend. On non-Pi machines, the GPIO controller falls back to virtual mock mode so that the rest of the application continues to function.
+
+## Validate the Installation
+
+Once the device is running in kiosk mode, use the field validation script to confirm all subsystems are healthy. Run this command over SSH (if SSH is available) or from a connected keyboard:
+
+```bash
+sudo /opt/beenut/scripts/pi-field-validation.sh \
+  --operator "QA station 1" \
+  --confirm-boot-preview
+```
+
+The script checks camera availability, GPIO state, GStreamer codec support, ONNX Runtime, and network reachability, then writes a signed evidence report to `/opt/beenut/logs/`.
+
+## If Something Goes Wrong
+
+If the device is stuck in kiosk mode, the display is black, or you need to regain normal desktop access, follow the procedure on the [Recovery](/deployment/recovery) page.

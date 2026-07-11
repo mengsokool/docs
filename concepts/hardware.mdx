@@ -1,0 +1,56 @@
+---
+title: "BeeNut Hardware: Cameras, GPIO, and Supported Devices"
+sidebarTitle: "Hardware"
+description: "Understand which cameras, GPIO features, and devices BeeNut supports, including Raspberry Pi tray sensors and light relay control."
+---
+
+BeeNut is designed to run on a range of hardware, from a Raspberry Pi 4 bolted to a factory floor kiosk to a Linux workstation on an engineer's desk. The camera, GPIO wiring, and performance characteristics vary depending on your platform, but the kiosk interface and counting behavior are the same across all of them.
+
+## Supported Camera Types
+
+BeeNut captures video through GStreamer, a flexible media framework that works with a wide variety of camera hardware.
+
+**On Linux and Raspberry Pi**, any USB camera that exposes a V4L2 device (the standard Linux video interface) is supported. This includes most off-the-shelf USB webcams and dedicated industrial USB cameras. You can select the specific camera device in the **Camera** section of Settings.
+
+**On macOS**, any camera that GStreamer can access works with BeeNut, including the built-in FaceTime camera and USB cameras with macOS drivers.
+
+If your camera works with standard Linux or macOS video tools, it will almost certainly work with BeeNut. Custom GStreamer pipeline strings are also accepted for specialized capture sources.
+
+## GPIO Features (Raspberry Pi Only)
+
+GPIO (General Purpose Input/Output) pins let BeeNut connect to simple physical hardware on a Raspberry Pi. BeeNut uses two GPIO features:
+
+### Tray Presence Sensor
+
+A tray presence sensor wired to the configured GPIO pin tells BeeNut whether a counting tray is currently in place. When you remove the tray, BeeNut resets the count to zero immediately. When you put a new tray down, counting starts fresh. This is the fastest and most reliable way to signal a new counting session — no button press required.
+
+The sensor pin defaults to GPIO 17 and includes configurable debounce filtering (default 80 ms) to ignore electrical noise on the signal line.
+
+### Light Relay
+
+BeeNut can control an illumination LED or light panel through a relay wired to a second GPIO pin (default GPIO 27). The light relay can be toggled on and off from the **Test** tab in the Settings panel, which is useful for checking lighting conditions and ensuring the illumination is working before a counting run.
+
+### GPIO on Non-Pi Hardware
+
+<Note>
+GPIO is disabled by default on any device that is not a Raspberry Pi. On Linux desktop machines and macOS, BeeNut runs in **GPIO mock mode** — the tray sensor and light relay appear in the interface but do not interact with any physical hardware. This lets you develop, test, and explore the full kiosk interface without needing a Pi or any wiring.
+
+If you are running BeeNut on a non-Pi Linux device and you have GPIO hardware attached, you can set the environment variable `BEENUT_GPIO_ALLOW=1` before launching the service to attempt real GPIO access. This is an advanced option intended for custom hardware setups.
+</Note>
+
+## Supported Devices
+
+| Device | Architecture | Typical Use |
+|---|---|---|
+| Raspberry Pi 4 | ARM64 | Production counting kiosk, appliance deployment |
+| Raspberry Pi 5 | ARM64 | Production counting kiosk, appliance deployment |
+| Linux desktop / workstation | AMD64 | Operator station, evaluation, development |
+| macOS (Intel or Apple Silicon) | x86\_64 / ARM64 | Development, desktop counting station |
+
+Raspberry Pi and Linux devices install from `.deb` packages. macOS installs from a `.dmg` installer or zipped `.app` bundle. All platforms receive the same kiosk interface and the same AI counting capability.
+
+## Performance Notes
+
+On a **Raspberry Pi 4 or 5**, YOLO inference completes in under 40 ms per frame, which supports real-time counting at comfortable frame rates. The camera preview stays smooth because BeeNut delivers frames directly to the display as GPU textures — the frame captured by the camera is the same frame rendered on screen, with no extra copying steps in between, even on the constrained resources of an embedded board.
+
+On **Linux desktop and macOS**, hardware is generally more capable and inference is correspondingly faster. These platforms are well suited for higher-resolution cameras or models with more output classes.

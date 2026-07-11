@@ -1,0 +1,90 @@
+---
+title: "Manage Target Parts in the BeeNut Catalog"
+sidebarTitle: "Target Catalog"
+description: "Set up and manage the target catalog in BeeNut to define part types, assign label keywords, and quickly switch counting targets."
+---
+
+The BeeNut catalog is a list of named part types that you define for your operation. Each part type tells BeeNut which YOLO class labels to count when that target is selected. By mapping human-friendly names like "M6 Nut" or "Flat Washer" to the raw label keywords your model outputs, the catalog lets you switch counting targets quickly without touching any configuration files.
+
+## How the catalog works
+
+Every part type has a set of **keywords** — short strings that BeeNut compares against the class labels produced by the active YOLO model. When BeeNut receives a detection, it checks whether the detection's label contains any of the part type's keywords. Detections that match are counted; those that do not match are ignored.
+
+This means your keywords do not need to be exact copies of the class names — they just need to be present as substrings. If your model outputs `"hex_nut_m6"` and your keyword is `"nut"`, BeeNut will match it.
+
+<Note>
+Keyword matching is **case-insensitive** and checks for substring containment. A keyword of `"nut"` matches model labels `"Nut"`, `"hex_nut"`, and `"NUT_M6"`. Keep keywords specific enough to avoid unintended cross-matches between part types — for example, use `"hex_nut"` rather than `"nut"` if your model also has a `"donut"` class.
+</Note>
+
+## Opening the catalog
+
+1. On the main kiosk screen, tap the **Settings** button (gear icon).
+2. In the settings sidebar, tap the **Catalog** tab.
+
+The Catalog tab lists all current part types, shows which one is active, and lets you add, edit, enable, disable, or delete entries.
+
+## PartType data shape
+
+Each part type is stored in the configuration with the following fields:
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Unique identifier generated automatically when you add a new part type. |
+| `name` | string | Human-readable name shown in the target selector on the main screen. |
+| `image` | string | Path to an optional thumbnail image shown alongside the name. |
+| `keywords` | list of strings | Label substrings to match against YOLO detection labels. |
+| `enabled` | boolean | Whether this part type appears in the target selector. Disabled types are hidden but not deleted. |
+
+## Add a new part type
+
+<Steps>
+  <Step title="Open the Catalog tab">
+    Tap **Settings** → **Catalog**. The list of current part types is displayed.
+  </Step>
+
+  <Step title="Tap Add">
+    Tap the **Add** button (or the **+** icon) in the Catalog tab toolbar. A new part type edit dialog opens with a generated default name.
+  </Step>
+
+  <Step title="Enter a name">
+    Type a descriptive name for the part, such as `M6 Hex Nut` or `10mm Flat Washer`. This name appears in the target selector on the main kiosk screen.
+  </Step>
+
+  <Step title="Add an image (optional)">
+    Tap the image field and use the file picker to select a thumbnail image from the device. Supported formats are JPEG and PNG. The image is shown as a small icon in the target selector dropdown. If you skip this step, a placeholder hexagon icon is used.
+  </Step>
+
+  <Step title="Set label keywords">
+    In the **Keywords** field, enter one or more keywords that match the class labels your YOLO model outputs for this part type. Add each keyword separately. 
+
+    To see which labels your current model exposes, check the label list shown in **Settings → Model → Labels preview** (when Labels mode is set to Auto detect).
+  </Step>
+
+  <Step title="Save the part type">
+    Tap **Save** in the dialog. BeeNut writes the updated catalog to the configuration immediately. The new part type appears in the list and is available in the target selector on the main kiosk screen.
+  </Step>
+</Steps>
+
+## Edit an existing part type
+
+Tap on any part type in the catalog list to open its edit dialog. You can change the name, update the image, and add or remove keywords. Tap **Save** when done.
+
+## Enable and disable part types
+
+Each row in the catalog list includes a toggle switch. Turn a part type off to hide it from the target selector without deleting it. This is useful for seasonal parts or items your current model does not support — you can keep the definition ready and re-enable it later.
+
+<Note>
+BeeNut requires at least one part type in the catalog at all times. If only one part type exists, the delete button is disabled.
+</Note>
+
+## Delete a part type
+
+Tap the delete icon on a catalog row and confirm the action in the dialog. If the deleted part type was the currently selected target, BeeNut automatically switches to the first remaining part type.
+
+## Switch the active target on the main screen
+
+You do not need to open Settings to switch targets during normal operation. On the main kiosk screen, tap the **target selector** button at the top of the right panel (or near the bottom in compact layout). A dropdown opens showing all enabled part types. Tap the one you want and BeeNut immediately filters detections for that target.
+
+## Persistence
+
+Part types are saved in the machine configuration file. They persist across app restarts, service restarts, and device reboots. The configuration is written atomically, so a power loss mid-save cannot corrupt the catalog.

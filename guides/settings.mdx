@@ -1,0 +1,198 @@
+---
+title: "BeeNut Settings: Camera, Model, GPIO, and Display"
+sidebarTitle: "Settings"
+description: "Configure BeeNut's camera source, AI model, counting thresholds, GPIO pins, display options, and theme from the settings panel."
+---
+
+The BeeNut settings panel is your control center for everything outside of live counting. Open it by tapping the **Settings** button (gear icon) on the main kiosk screen. The panel is organized into five tabs: **Config**, **Model**, **Catalog**, **Test**, and **Status**. A **Shutdown** button at the bottom of the settings sidebar lets you power off the device safely — it is deliberately placed here rather than on the main screen to prevent accidental shutdowns.
+
+All settings are validated when you save, and the configuration is written atomically. If the device loses power mid-save, the previous configuration is preserved intact.
+
+## Virtual keyboard
+
+On touch-screen kiosks, all text fields in the settings dialogs include a virtual keyboard. Tap any text field to bring up the keyboard. The keyboard is part of the Flutter UI and works without a physical keyboard attached.
+
+---
+
+## Settings tabs
+
+<AccordionGroup>
+
+<Accordion title="Config — Camera, triggers, and socket paths">
+
+The **Config** tab controls the camera source, video resolution, counting trigger mode, GPIO pin assignments, and low-level service paths.
+
+### Camera source
+
+Select the camera BeeNut captures from:
+
+- **Auto detect** — BeeNut picks the first available camera on startup. Use this for single-camera setups.
+- **Named camera** — If multiple cameras are detected, each one appears by name. Selecting a specific camera locks BeeNut to that device.
+- **Test pattern (Mock)** — Feeds a synthetic pattern instead of a real camera. Use this to test the UI without hardware.
+
+### Resolution
+
+Choose the capture resolution from the presets detected for your camera (e.g., `480p`, `640p`, `720p`, `1080p`). Higher resolutions give more detail in the preview and inspection mode, but increase processing load. The resolution applies to both the preview stream and the inference pipeline input.
+
+Additional camera options:
+
+| Option | Description |
+|---|---|
+| **Preview transport** | How the native preview is delivered to the Flutter UI: Auto, IOSurface NV12 (macOS), DMA-BUF/EGL (Linux), Shared memory NV12, or MJPEG fallback. Leave on **Auto** unless you are troubleshooting preview issues. |
+| **Warmup frames** | Number of frames to discard after the camera starts before inference begins. Allows the sensor to stabilize. Default: `5`. |
+| **Flip horizontal / Flip vertical** | Mirror the camera image if your mount orientation requires it. |
+
+### Trigger mode
+
+Choose how BeeNut decides when to gate and report a count:
+
+- **Tray sensor (GPIO)** — Available only when GPIO hardware is detected. BeeNut waits for the tray presence sensor to activate, then counts and resets automatically when the tray is removed.
+- **Live stream** — BeeNut counts continuously in real time without waiting for a tray. Use this for conveyor or live-stream setups without a physical tray.
+
+### GPIO pin assignments
+
+When a GPIO backend is detected, you can assign specific BCM pin numbers for:
+
+- **Tray sensor pin** — The GPIO pin connected to the physical tray presence sensor (default: GPIO 17).
+- **Tray sensor debounce** — Time in milliseconds to ignore signal bouncing after the sensor changes state (default: 80 ms).
+- **LED relay pin** — The GPIO pin connected to the counting light relay (default: GPIO 27).
+- **Active-low relay** — Enable if your relay hardware requires a LOW signal to activate.
+
+### Socket paths and power-off command
+
+These settings are for advanced deployments:
+
+| Setting | Default | Purpose |
+|---|---|---|
+| **Control socket** | `/tmp/beenutd.sock` | Unix socket path for the JSON-lines control protocol between the Flutter UI and `beenutd`. |
+| **Preview socket** | `/tmp/beenut-preview.sock` | Socket or transport path for the native preview stream. |
+| **Power-off command** | *(empty)* | Shell command BeeNut runs when you tap Shutdown. On Raspberry Pi appliance installs, this is set to `sudo poweroff` by the installer. |
+
+</Accordion>
+
+<Accordion title="Model — ONNX file, labels, and inference tuning">
+
+The **Model** tab lets you select the YOLO ONNX file BeeNut uses for inference, configure how class labels are resolved, and tune the inference parameters. For a full walkthrough, see the [Adding Models guide](/guides/adding-models).
+
+### Runtime
+
+Choose the inference engine:
+
+| Option | When to use |
+|---|---|
+| **ONNX** | Standard YOLO ONNX models exported from Ultralytics or equivalent. Works on all platforms. |
+| **Hailo** | Hailo-8 or Hailo-8L accelerator with a compiled `.hef` file. Available only when Hailo hardware is detected. |
+| **Mock** | Simulates inference with random detections. For UI development and hardware testing without a real model. |
+
+### Model file
+
+Tap **Select Model** to open the file picker and navigate to your `yolo.onnx` file (or `.hef` file if using Hailo). The current model path is shown in the row.
+
+### Labels
+
+- **Auto detect** — BeeNut reads class names from the ONNX model metadata. If no metadata is available, it falls back to a `labels.txt` file in the same directory as the model. A read-only preview of the loaded labels is shown below.
+- **Custom file** — Tap **Select Labels** and choose a `labels.txt` file manually. Use this when your labels file lives in a different directory.
+
+### Advanced tuning
+
+| Setting | Default | Description |
+|---|---|---|
+| **Confidence** | `0.45` | Minimum detection score to count a box. Increase to reduce false positives; decrease to catch low-confidence parts. Range: `0.10 – 0.95`. |
+| **NMS** | `0.50` | Intersection-over-union threshold for non-maximum suppression on standard YOLO models. Not used for E2E NMS-free models. |
+| **Max Inference FPS** | `10` | Cap on how often the inference engine runs per second. Lower values reduce CPU/thermal load on slower hardware. |
+
+</Accordion>
+
+<Accordion title="Catalog — Part type definitions">
+
+The **Catalog** tab is where you define the named part types that appear in the target selector on the main kiosk screen. Each part type maps a human-friendly name to one or more YOLO class label keywords.
+
+For a full walkthrough of adding, editing, enabling, disabling, and deleting part types, see the [Target Catalog guide](/guides/target-catalog).
+
+Key operations available in this tab:
+
+- **Add** a new part type with a name, optional thumbnail image, and label keywords.
+- **Edit** an existing part type to update its name, image, or keywords.
+- **Enable / disable** a part type using the toggle switch on each row.
+- **Delete** a part type after confirming the action.
+
+The catalog is saved to the machine configuration and persists across restarts.
+
+</Accordion>
+
+<Accordion title="Test — Hardware diagnostics and manual controls">
+
+The **Test** tab provides manual controls for hardware components and lets you run targeted diagnostic checks against the camera, AI runtime, and GPIO backend.
+
+### Diagnostic checks
+
+Run these to verify each subsystem is working correctly:
+
+| Target | What it checks |
+|---|---|
+| **Camera Pipeline** | Active camera capture, live FPS, and preview stream capabilities. |
+| **AI Runtime** | Model runtime readiness and the latest inference latency metrics. |
+| **GPIO Backend** | Tray sensor and relay state, GPIO chip availability, and backend type. |
+
+After running a diagnostic, the **Last Diagnostic** row shows the target name, an ok/fail result, a short message, and detail text from the service.
+
+### Hardware controls
+
+Use these during commissioning or troubleshooting to directly command hardware:
+
+| Control | Action |
+|---|---|
+| **LED Relay — Turn On / Turn Off** | Directly toggle the counting light relay without triggering a counting cycle. |
+| **Tray Simulation — Place / Remove** | Simulate a tray present or absent event on systems without a physical tray sensor. Useful for testing the counting pipeline on a desktop. |
+| **Manual Count** | Trigger a single snapshot count verification sequence. The count panel shows a loading indicator and then displays the result. |
+
+### Maintenance actions
+
+| Action | Description |
+|---|---|
+| **Export Diagnostics Bundle** | Collects a redacted snapshot of the config, service logs, hardware capabilities, and recent diagnostic events into an archive file. Share this archive when reporting an issue. |
+| **Factory Reset** | Restores the runtime configuration to package defaults. Your model files and device identity are preserved; only the config is reset. A confirmation dialog appears before the reset runs. |
+| **USB Offline Update** | Scans attached drives for a `beenut-update` folder. Use **Dry Run** first to validate the update package, then **Apply** to install it. The service may restart and auto-rollback if the health check fails. |
+
+</Accordion>
+
+<Accordion title="Status — System health, resources, and display settings">
+
+The **Status** tab shows real-time resource metrics, hardware state, service connection status, and lets you configure display preferences.
+
+### Display settings
+
+| Setting | Options | Description |
+|---|---|---|
+| **UI Scale** | `50% – 200%` | Scales the entire interface. Increase for high-DPI displays or operators who prefer larger text. |
+| **Language** | English, ไทย | Switches the interface language. |
+| **Theme** | System, Light, Dark | Sets the color theme. **System** follows the OS dark/light mode. |
+
+### Status indicators
+
+| Indicator | Description |
+|---|---|
+| **Tray Sensor** | Shows whether the physical tray is detected as present or absent. |
+| **LED Relay** | Shows whether the counting light relay is currently on or off. |
+| **Last Detection Count** | The most recent stable count, shown in pieces. |
+| **Inference Latency** | Time in milliseconds for the last inference pass. |
+| **Thermal Policy** | Current thermal state (`normal`, `warning`, `throttled`, `critical`), temperature in °C, and the effective inference FPS after thermal throttling. |
+
+### Resource usage chart
+
+A live chart displays CPU and RAM usage for both the `beenutd` daemon and the Flutter UI process. The chart updates continuously while the Status tab is open.
+
+### Connection diagnostics
+
+| Row | What it shows |
+|---|---|
+| **Service** | Whether the Flutter UI is connected to the `beenutd` socket (`connected` or `offline`). |
+| **Camera** | Camera status string, capture FPS, and any camera permission issues. On macOS, a **Grant Access** button appears if camera permission has not been granted. |
+| **Model** | Model load status and detail text from the service. |
+| **GPIO** | GPIO backend type and readiness. |
+
+The validation row shows the result of the last configuration validation — `ready` if everything is clean, or a count of warnings or errors with a brief description. BeeNut validates the configuration automatically on every save.
+
+</Accordion>
+
+</AccordionGroup>

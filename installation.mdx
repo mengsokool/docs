@@ -1,0 +1,154 @@
+---
+title: "Install BeeNut on Linux, Raspberry Pi, and macOS"
+sidebarTitle: "Installation"
+description: "Download and install BeeNut on Raspberry Pi, Linux desktop, or macOS using prebuilt packages or the one-command Linux installer script."
+---
+
+BeeNut ships prebuilt packages for Raspberry Pi, Linux desktop, and macOS. On Linux and Raspberry Pi you can use the one-command installer script, which downloads the correct package for your platform, verifies its checksum, installs it with `apt`, and applies the setup profile you choose. On macOS you install from a `.dmg` or `.app.zip` downloaded from the GitHub Releases page.
+
+<Tabs>
+  <Tab title="Linux / Raspberry Pi">
+
+    ## One-Command Installer
+
+    The fastest way to install BeeNut on any Linux machine or Raspberry Pi is to run the bootstrapper script directly from GitHub. The script detects your architecture, fetches the latest release package, verifies `checksums.sha256`, installs the `.deb` with `apt`, and configures your system profile — all in one step.
+
+    <Note>
+      The Linux installer is idempotent. Running it again on an already-installed system downloads the matching release package, re-verifies the checksum, lets `apt` upgrade or repair the installation, and reapplies the selected profile. You can safely re-run it to update or fix a broken install.
+    </Note>
+
+    <Steps>
+      <Step title="Run the installer">
+        Open a terminal and run:
+
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh | sudo bash
+        ```
+
+        The script will detect your platform, download the latest release, verify the checksum, install the package, and apply the default profile for your hardware.
+      </Step>
+
+      <Step title="Choose a profile (optional)">
+        To install a specific version or select a non-default profile, pass environment variables before the script runs:
+
+        ```bash
+        curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+          | sudo env BEENUT_VERSION=v0 BEENUT_PROFILE=appliance-pi bash
+        ```
+
+        Replace `v0` with any version tag published on the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases), and `appliance-pi` with the profile that matches your target system (see the table below).
+      </Step>
+
+      <Step title="Reboot">
+        After the installer finishes, reboot the machine so that all systemd service changes and display configuration take effect:
+
+        ```bash
+        sudo reboot
+        ```
+      </Step>
+    </Steps>
+
+    ## Install Profiles
+
+    The installer and the `beenut-setup` utility both use profiles to control how BeeNut integrates with the host operating system. Choose the profile that matches your deployment scenario.
+
+    | Profile | Behavior |
+    |---|---|
+    | `appliance-pi` | Raspberry Pi kiosk using the `flutter-pi` runtime. Boots directly into the counting interface using direct KMS/DRM rendering — no desktop environment required. |
+    | `appliance-linux` | Generic Linux kiosk using the Flutter Linux bundle. Installs the Cage Wayland compositor, binds the display to TTY7, and starts BeeNut full-screen on boot. |
+    | `desktop` | Standard desktop app install. Registers a normal application launcher without taking over boot or the display server. |
+    | `dev-service` | Backend service only. Runs `beenutd` headlessly without launching the kiosk UI — useful for development, diagnostics, or integration testing. |
+
+    <Warning>
+      **Appliance profiles take over boot.** Choosing `appliance-pi` or `appliance-linux` applies hardening that disables standard desktop login, TTY consoles, and SSH access, and configures the system to boot directly into the BeeNut kiosk. Do not apply an appliance profile on a personal workstation or any machine you still need general-purpose desktop access to.
+
+      If your machine returns to a black screen after applying an appliance profile, SSH in from another computer (before SSH is disabled) or boot into a recovery terminal and run:
+
+      ```bash
+      sudo beenut-recover-desktop
+      ```
+
+      This stops the kiosk services, re-enables your display manager, restores the default graphical boot target, and reboots the machine into a normal desktop.
+    </Warning>
+
+    ## Manual .deb Install
+
+    If you prefer to download the package yourself and install it manually, grab the appropriate `.deb` from the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases) and install it with `apt`:
+
+    ```bash
+    # Raspberry Pi / Debian ARM64
+    sudo apt install ./beenut_*_arm64.deb
+
+    # Linux desktop AMD64
+    sudo apt install ./beenut_*_amd64.deb
+    ```
+
+    Using `apt install` rather than `dpkg -i` ensures that any missing system dependencies are resolved automatically. After the package is installed, run `sudo beenut-setup` to apply your desired profile.
+
+    ## Verifying the Checksum
+
+    Every release includes a `checksums.sha256` file alongside the package artifacts. Download it from the same release and verify your package before installing:
+
+    ```bash
+    sha256sum --check --ignore-missing checksums.sha256
+    ```
+
+    A line reading `beenut_*_arm64.deb: OK` (or the equivalent for your package) confirms the download is intact.
+
+  </Tab>
+  <Tab title="macOS">
+
+    ## Download the Package
+
+    All macOS release artifacts are published on the [GitHub Releases page](https://github.com/mengsokool/app.beenut/releases). Each release provides two macOS options — choose whichever suits your workflow.
+
+    | Artifact | Use It When |
+    |---|---|
+    | `BeeNut-macos-*.dmg` | You want the standard drag-to-Applications installer experience. |
+    | `BeeNut-macos-*.app.zip` | You want a zipped `.app` bundle to place manually or distribute internally. |
+
+    <Steps>
+      <Step title="Install from the DMG (recommended)">
+        1. Open the downloaded `.dmg` file.
+        2. Drag **BeeNut.app** into your **Applications** folder.
+        3. Eject the disk image.
+        4. Open BeeNut from your Applications folder or Launchpad.
+
+        On first launch, macOS Gatekeeper may show a security prompt. Open **System Settings → Privacy & Security** and click **Open Anyway** to allow BeeNut to run.
+      </Step>
+
+      <Step title="Install from the .app.zip (alternative)">
+        1. Double-click the downloaded `.zip` file to unzip it — macOS extracts `BeeNut.app` automatically.
+        2. Move `BeeNut.app` to your **Applications** folder, or leave it wherever you want to run it from.
+        3. Double-click `BeeNut.app` to launch it.
+
+        The same Gatekeeper prompt may appear on first launch. Open **System Settings → Privacy & Security** and click **Open Anyway** to proceed.
+      </Step>
+
+      <Step title="Verify the checksum (optional)">
+        Download `checksums.sha256` from the same release and verify your file in Terminal:
+
+        ```bash
+        sha256sum --check --ignore-missing checksums.sha256
+        ```
+
+        On macOS you can also use `shasum -a 256 -c checksums.sha256` if `sha256sum` is not available.
+      </Step>
+    </Steps>
+
+    <Note>
+      macOS builds run the full Flutter kiosk UI and `beenutd` service on Apple Silicon and Intel Macs. GPIO features require physical Raspberry Pi hardware — on macOS, GPIO runs in mock mode automatically.
+    </Note>
+
+  </Tab>
+</Tabs>
+
+## Where to Find Releases
+
+All prebuilt packages, installer scripts, checksums, and release manifests are published on the [BeeNut GitHub Releases page](https://github.com/mengsokool/app.beenut/releases). Each release includes:
+
+- `.deb` packages for ARM64 and AMD64
+- macOS `.dmg` installer and `.app.zip` bundle
+- `install-linux.sh` bootstrapper script
+- `checksums.sha256` for all artifacts
+- A JSON release manifest for automated field verification

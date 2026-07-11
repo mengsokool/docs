@@ -1,0 +1,53 @@
+---
+title: "BeeNut Changelog: Release History and Updates"
+sidebarTitle: "Changelog"
+description: "See what's new in each BeeNut release, including new features, changes, and removals from v0 through the latest version."
+---
+
+This page records every notable change to BeeNut across all published releases. Entries follow the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format and BeeNut uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The most recent release appears first.
+
+---
+
+## v0.1.0 — 2026-07-09
+
+### Added
+
+- Added a custom target edit dialog for catalog configuration, letting operators create and modify part types directly from the kiosk UI without editing `config.json` by hand.
+- Added virtual keyboard support for touch-screen operators in settings dialogs, removing the need for a physical keyboard on appliance deployments.
+- Added system resource usage charts for CPU, RAM, and thermals in the Status settings panel, giving operators and integrators live visibility into device health.
+- Added an interactive file picker widget for model selection, making it easier to switch YOLO ONNX models from the Settings UI.
+- Added `PRODUCT.md` with product rules and guidelines.
+
+### Changed
+
+- Replaced precompiled pill models with a modular configuration pattern that defaults to the `nuts_detection` model, reducing repository weight and making it clearer how to bring your own model.
+- Refined UI controls: updated control buttons, setting rows, panel decorations, and catalog/model tabs for a more robust operator experience.
+- Refined the ONNX YOLO engine to map dynamic output geometries more reliably, improving compatibility with a wider range of exported model shapes.
+- Updated automated unit and integration tests to cover the new configuration and UI changes.
+
+### Removed
+
+- Removed large precompiled demo models (`yolo26n` and `pills_detection`) from repository history to keep bundle size lightweight. These models are no longer shipped with the default package.
+
+---
+
+## v0 — 2026-07-08
+
+### Added
+
+- Launched BeeNut as the first product release.
+- Added a clean Flutter kiosk UI for object-counting workflows.
+- Added a native `beenutd` service for camera capture, preview transport, ONNX inference, GPIO control, diagnostics, and shutdown.
+- Added support for bundled and custom YOLO ONNX models with labels files and release manifests.
+- Added a bundled pills detection demo model with `capsules` and `tablets` labels.
+- Added preview inspection mode for bounding boxes, focused confidence labels, and dimmed-background review of individual detections.
+- Added model, camera, GPIO, display, theme, target catalog, and hardware test settings panels.
+- Added packaging workflows for macOS, Linux desktop, and Raspberry Pi appliance targets.
+- Added release validation tooling, field diagnostics, checksums, and release manifest generation.
+
+### Changed
+
+- Branded the app with a clean white interface and `#F3C622` honey-yellow accents.
+- Moved pause/resume controls to the main kiosk interface and moved the shutdown action to the Settings sidebar.
+- Updated the splash screen to display the BeeNut logo.
+- Refreshed the README with product positioning and an app preview image.

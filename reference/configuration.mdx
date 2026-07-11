@@ -1,0 +1,299 @@
+---
+title: "BeeNut Configuration Reference: config.json Fields"
+sidebarTitle: "Configuration"
+description: "Complete reference for BeeNut's config.json file, including camera, model, GPIO, counting, UI, and part type fields."
+---
+
+BeeNut stores its entire runtime configuration in a single `config.json` file. The `beenutd` service reads this file on startup and hot-reloads compatible changes without a restart. You can edit the file directly or use the Settings panel inside the kiosk UI — both routes write to the same document. This reference describes every field, its type, its default value, and when you would change it.
+
+---
+
+## Top-Level Fields
+
+These fields sit at the root of `config.json` and control global service behaviour.
+
+<ParamField path="schema_version" type="int" default="1">
+  Config schema version. BeeNut uses this value to detect incompatible files and offer migration. Always set this to `1` for the current schema.
+</ParamField>
+
+<ParamField path="controlSocket" type="string" default="/tmp/beenutd.sock">
+  Path to the Unix domain socket that the Flutter UI uses to send commands to `beenutd`. Change this only if `/tmp` is not writable on your target device or you are running multiple service instances.
+</ParamField>
+
+<ParamField path="previewSocket" type="string" default="/tmp/beenut-preview.sock">
+  Path to the Unix domain socket used to stream preview frames from `beenutd` to the Flutter UI via the GStreamer shared-memory transport. Must match the value expected by the kiosk service.
+</ParamField>
+
+<ParamField path="poweroffCommand" type="string" default="">
+  Shell command that `beenutd` executes when the operator triggers a shutdown from within the kiosk UI. On a Raspberry Pi appliance this is typically `sudo poweroff`. Leave empty to disable the shutdown button.
+</ParamField>
+
+<ParamField path="safe_mode" type="bool" default="false">
+  When `true`, all hardware outputs — GPIO relay, tray sensor polling — are disabled. BeeNut sets this flag automatically when it detects thermal throttling or a process communication failure. You can also set it manually to bring up the service without touching any hardware. See [GPIO Reference](/reference/gpio) for more detail on safe-mode behaviour.
+</ParamField>
+
+---
+
+## `camera` Object
+
+Controls the GStreamer camera pipeline. All fields are nested under the `camera` key.
+
+<ParamField path="camera.source" type="string" default="auto">
+  Camera source type. `auto` lets the service pick the best available source. Other values: `v4l2` (Linux Video4Linux2), `libcamera` (Raspberry Pi Camera Module), `avfoundation` (macOS).
+</ParamField>
+
+<ParamField path="camera.device" type="string" default="">
+  Explicit device path or index, for example `/dev/video0`. Leave empty when `source` is `auto` and you have only one camera attached.
+</ParamField>
+
+<ParamField path="camera.width" type="int" default="1280">
+  Capture resolution width in pixels. Must be a resolution supported by your camera.
+</ParamField>
+
+<ParamField path="camera.height" type="int" default="1280">
+  Capture resolution height in pixels. BeeNut works best with a square crop that matches your model's input size.
+</ParamField>
+
+<ParamField path="camera.fps" type="int" default="30">
+  Active capture framerate. Higher values improve responsiveness but increase CPU load on single-board computers.
+</ParamField>
+
+<ParamField path="camera.idle_fps" type="int" default="5">
+  Reduced framerate used when the system is idle (no active count session). Lowering this saves power on battery-backed or thermally constrained hardware.
+</ParamField>
+
+<ParamField path="camera.warmup_frames" type="int" default="5">
+  Number of frames to discard after the pipeline starts before inference begins. Allows the camera auto-exposure to settle.
+</ParamField>
+
+<ParamField path="camera.preview_transport" type="string" default="auto">
+  Memory transport mechanism used to deliver preview frames to the UI. `auto` selects the best option for your platform. Explicit values: `shm` (shared memory, Linux), `dmabuf` (DMA-BUF, Linux), `iosurface` (macOS).
+</ParamField>
+
+<ParamField path="camera.exposure_mode" type="string" default="auto">
+  Camera exposure mode. `auto` is recommended for most deployments. Set to `manual` only if you are controlling lighting precisely and need a fixed shutter.
+</ParamField>
+
+<ParamField path="camera.flip_horizontal" type="bool" default="false">
+  Mirror the camera image left-to-right. Useful when the camera is mounted facing a mirror or reversed in an enclosure.
+</ParamField>
+
+<ParamField path="camera.flip_vertical" type="bool" default="false">
+  Flip the camera image top-to-bottom. Useful when the camera is mounted upside down.
+</ParamField>
+
+---
+
+## `model` Object
+
+Controls the ONNX inference engine. All fields are nested under the `model` key.
+
+<ParamField path="model.engine" type="string" default="mock">
+  Inference engine to use. Set to `onnx` to run a real YOLO ONNX model. `mock` runs a software stub that returns simulated detections — useful for UI development without a GPU or camera.
+</ParamField>
+
+<ParamField path="model.model_path" type="string" default="">
+  Path to the `yolo.onnx` file. Relative paths are resolved from the BeeNut data directory. When you add a model through the Settings UI, this field is written automatically. For example: `service/models/nuts_detection/yolo.onnx`.
+</ParamField>
+
+<ParamField path="model.hef_path" type="string" default="">
+  Path to a Hailo HEF model file for use with Hailo AI accelerator hardware. Leave empty when running ONNX Runtime inference.
+</ParamField>
+
+<ParamField path="model.labels_mode" type="string" default="auto">
+  How BeeNut resolves class label names. `auto` reads labels from ONNX metadata first, then falls back to `labels.txt`. Set to `file` to force reading from `labels_path` only.
+</ParamField>
+
+<ParamField path="model.labels_path" type="string" default="">
+  Explicit path to a `labels.txt` file. Required only when `labels_mode` is `file` or when the ONNX file contains no embedded metadata.
+</ParamField>
+
+<ParamField path="model.input_size" type="int" default="640">
+  Square input dimension (pixels) that the model expects, for example `640` for YOLOv8n. Must match the model's training input size.
+</ParamField>
+
+<ParamField path="model.confidence_threshold" type="float" default="0.45">
+  Minimum detection confidence score (0.0–1.0) for a bounding box to be accepted. Raise this value to reduce false positives; lower it to catch more borderline detections. Typical range: `0.35`–`0.65`.
+</ParamField>
+
+<ParamField path="model.nms_threshold" type="float" default="0.5">
+  Non-maximum suppression IoU threshold (0.0–1.0). Controls how aggressively overlapping bounding boxes are merged. Lower values suppress more duplicates.
+</ParamField>
+
+<ParamField path="model.max_fps" type="float" default="10">
+  Maximum inference framerate. BeeNut samples frames from the camera pipeline at this rate and submits them to the ONNX engine. Reducing this value caps CPU/GPU usage without affecting the preview framerate.
+</ParamField>
+
+---
+
+## `gpio` Object
+
+Controls physical GPIO hardware on Raspberry Pi. All fields are nested under the `gpio` key. See the [GPIO Reference](/reference/gpio) for wiring diagrams and test procedures.
+
+<ParamField path="gpio.enabled" type="bool" default="false">
+  Master switch for GPIO functionality. Set to `true` to activate tray sensor polling and light relay control. Has no effect on non-Pi hardware unless `BEENUT_GPIO_ALLOW=1` is also set.
+</ParamField>
+
+<ParamField path="gpio.backend" type="string" default="auto">
+  GPIO backend driver. `auto` selects libgpiod on modern kernels or sysfs as a fallback. Explicit values: `libgpiod`, `sysfs`, `mock`.
+</ParamField>
+
+<ParamField path="gpio.chip" type="string" default="gpiochip0">
+  GPIO chip device name as reported by `gpiodetect`. On Raspberry Pi 4/5 this is `gpiochip0`. Change this only if your hardware exposes GPIO on a different chip.
+</ParamField>
+
+<ParamField path="gpio.tray_sensor_pin" type="int" default="17">
+  BCM GPIO pin number connected to the tray presence sensor. When the pin goes low (or high, depending on `active_low`), BeeNut registers the tray as removed and resets the count immediately.
+</ParamField>
+
+<ParamField path="gpio.relay_pin" type="int" default="27">
+  BCM GPIO pin number connected to the illumination LED relay. BeeNut drives this pin high when the light is on.
+</ParamField>
+
+<ParamField path="gpio.active_low" type="bool" default="false">
+  When `true`, the logic levels for both the tray sensor and relay are inverted. Set this if your hardware uses active-low signalling (common with opto-isolated relay modules).
+</ParamField>
+
+<ParamField path="gpio.debounce_ms" type="int" default="80">
+  Debounce interval in milliseconds for the tray sensor input. Increase this value if mechanical vibration causes spurious tray-removal events.
+</ParamField>
+
+---
+
+## `counting` Object
+
+Controls the temporal smoothing and trigger logic that converts raw per-frame detections into stable counts. All fields are nested under the `counting` key.
+
+<ParamField path="counting.selected_part_type" type="string" default="">
+  The `id` of the part type currently selected in the kiosk UI. Updated automatically when the operator picks a target from the selector. You can pre-select a default by setting this to a valid part type `id`.
+</ParamField>
+
+<ParamField path="counting.trigger_mode" type="string" default="tray_sensor">
+  How BeeNut decides to start and stop a count session. `tray_sensor` starts counting when the GPIO tray sensor is active and resets when the tray is removed. `manual` relies on operator controls only.
+</ParamField>
+
+<ParamField path="counting.stable_frames" type="int" default="5">
+  Number of consecutive frames that must report the same object count before BeeNut accepts it as the stable result and displays it. Increase this (try 8–10) if the displayed count flickers between values.
+</ParamField>
+
+<ParamField path="counting.timeout_ms" type="int" default="2500">
+  Time in milliseconds after which an idle count session resets automatically if no new stable count is produced. This prevents a stale count from persisting after a tray is removed while `trigger_mode` is `manual`.
+</ParamField>
+
+---
+
+## `counting.part_types` Array
+
+Each entry in `counting.part_types` defines one selectable part type in the kiosk UI. BeeNut maps YOLO class labels to part types using keyword matching, so a single part type can aggregate multiple model classes.
+
+<ParamField path="counting.part_types[].id" type="string" required>
+  Unique string identifier for this part type, used internally and stored in `selected_part_type`. Must be unique across all entries. Example: `"hex_bolt_m6"`.
+</ParamField>
+
+<ParamField path="counting.part_types[].name" type="string" required>
+  Human-readable display name shown in the kiosk part selector and on count results. Example: `"M6 Hex Bolt"`.
+</ParamField>
+
+<ParamField path="counting.part_types[].image" type="string" default="">
+  Optional path to a thumbnail image displayed in the part selector tile. Leave empty to show a generic placeholder icon.
+</ParamField>
+
+<ParamField path="counting.part_types[].keywords" type="string[]" required>
+  List of YOLO class label keywords that map to this part type. BeeNut performs a case-insensitive substring match between each keyword and the model's detection labels. For example, `["bolt", "hex"]` would match model classes named `"hex_bolt"`, `"bolt_m6"`, etc.
+</ParamField>
+
+<ParamField path="counting.part_types[].enabled" type="bool" default="true">
+  When `false`, this part type is hidden in the kiosk selector. Use this to temporarily remove a target without deleting its configuration.
+</ParamField>
+
+---
+
+## `ui` Object
+
+Controls the kiosk display appearance. All fields are nested under the `ui` key.
+
+<ParamField path="ui.theme" type="string" default="system">
+  Colour theme for the Flutter UI. Accepted values: `light`, `dark`, `system`. `system` follows the host OS appearance preference.
+</ParamField>
+
+<ParamField path="ui.scale" type="float" default="1.0">
+  Display scale factor applied to the entire UI. Clamped to the range `0.5`–`2.0`. Increase this on high-DPI touch screens; decrease it on small embedded displays to fit more content.
+</ParamField>
+
+<ParamField path="ui.language" type="string" default="en">
+  UI language locale code (BCP 47). Currently `en` is the only shipped locale.
+</ParamField>
+
+---
+
+## Example `config.json`
+
+The following snippet shows a typical production configuration for a Raspberry Pi appliance counting M6 hex bolts and M4 washers with a USB camera and GPIO enabled.
+
+```json
+{
+  "schema_version": 1,
+  "controlSocket": "/tmp/beenutd.sock",
+  "previewSocket": "/tmp/beenut-preview.sock",
+  "poweroffCommand": "sudo poweroff",
+  "safe_mode": false,
+  "camera": {
+    "source": "v4l2",
+    "device": "/dev/video0",
+    "width": 1280,
+    "height": 1280,
+    "fps": 30,
+    "idle_fps": 5,
+    "warmup_frames": 5,
+    "preview_transport": "shm",
+    "exposure_mode": "auto",
+    "flip_horizontal": false,
+    "flip_vertical": false
+  },
+  "model": {
+    "engine": "onnx",
+    "model_path": "service/models/nuts_detection/yolo.onnx",
+    "labels_mode": "auto",
+    "input_size": 640,
+    "confidence_threshold": 0.50,
+    "nms_threshold": 0.45,
+    "max_fps": 10
+  },
+  "gpio": {
+    "enabled": true,
+    "backend": "auto",
+    "chip": "gpiochip0",
+    "tray_sensor_pin": 17,
+    "relay_pin": 27,
+    "active_low": false,
+    "debounce_ms": 80
+  },
+  "counting": {
+    "selected_part_type": "hex_bolt_m6",
+    "trigger_mode": "tray_sensor",
+    "stable_frames": 6,
+    "timeout_ms": 2500,
+    "part_types": [
+      {
+        "id": "hex_bolt_m6",
+        "name": "M6 Hex Bolt",
+        "image": "",
+        "keywords": ["bolt", "hex"],
+        "enabled": true
+      },
+      {
+        "id": "washer_m4",
+        "name": "M4 Washer",
+        "image": "",
+        "keywords": ["washer"],
+        "enabled": true
+      }
+    ]
+  },
+  "ui": {
+    "theme": "light",
+    "scale": 1.0,
+    "language": "en"
+  }
+}
+```

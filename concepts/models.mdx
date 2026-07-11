@@ -1,0 +1,63 @@
+---
+title: "YOLO ONNX Models in BeeNut: A User Guide"
+sidebarTitle: "Models"
+description: "Learn how BeeNut uses YOLO ONNX models for object detection, how to add your own model, and what model formats are supported."
+---
+
+BeeNut runs object detection entirely on your device using ONNX Runtime, a high-performance inference engine that reads YOLO models saved in the ONNX format. No internet connection is required, no data leaves your machine, and no cloud subscription is needed — the AI runs locally on whatever hardware you are using, from a Raspberry Pi to a desktop workstation.
+
+## Supported Model Formats
+
+BeeNut accepts two YOLO model variants. Both use the ONNX format but differ in how their outputs are structured.
+
+**End-to-End NMS-free models** produce output shaped `1 × N × 6`, where each detected object is already described as a single compact row. Because overlapping-box filtering is handled inside the model itself, BeeNut can read results directly and very quickly. This is the recommended format for best performance.
+
+**Standard YOLO v8 / v11 models** produce output shaped `1 × channels × boxes`. BeeNut applies its own overlapping-box filtering step after reading these outputs. This format is fully supported and works well, though it adds a small amount of extra processing per frame.
+
+If you are unsure which format your model uses, check with whoever exported or trained it. Both formats work without any special configuration on your part — BeeNut detects the output shape automatically.
+
+## How BeeNut Reads Class Labels
+
+BeeNut needs to know what names to attach to the objects your model detects. It finds those names in two ways, checked in order:
+
+<Note>
+BeeNut first looks for class names embedded directly in the ONNX file's metadata. If your model was exported with class names included (many tools do this by default), you do not need a `labels.txt` file at all. The `labels.txt` file is only used as a fallback when the ONNX file has no embedded names.
+</Note>
+
+If the ONNX metadata does not include class names, BeeNut looks for a `labels.txt` file placed next to the model file. This plain text file should list one class name per line, in the same order as the model's output classes.
+
+## Model Directory Layout
+
+BeeNut looks for models in a specific folder structure under the service directory. Each model lives in its own named subfolder:
+
+```text
+service/models/<model-name>/
+├─ yolo.onnx
+└─ labels.txt   (optional)
+```
+
+For example, a model named `nuts-and-bolts` would be placed at:
+
+```text
+service/models/nuts-and-bolts/
+├─ yolo.onnx
+└─ labels.txt
+```
+
+The minimum requirement is the `yolo.onnx` file. The `labels.txt` file is only needed if your ONNX file does not embed class names in its metadata.
+
+You can also add a model through the settings panel in the kiosk interface, which will place files in this structure for you.
+
+## Hot-Reload: No Rebuild Required
+
+You can replace the model file or update the `labels.txt` at any time without reinstalling BeeNut or rebuilding the application. After you save a new model or configuration, the background service reloads it automatically and the kiosk picks up the updated class labels and model behavior within seconds.
+
+## Confidence Threshold
+
+Every detection produced by the model comes with a confidence score — a number between 0 and 1 indicating how certain the model is that it found a real object. BeeNut filters out any detection below the configured confidence threshold, so low-confidence guesses never appear in your count.
+
+You can adjust this threshold in the **Model** section of Settings. The default value is `0.45` (45% confidence). Raising it reduces false positives but may miss objects the model is less certain about; lowering it catches more objects but may introduce noise.
+
+## Performance on Raspberry Pi
+
+On a Raspberry Pi 4 or 5, BeeNut's ONNX Runtime integration keeps inference latency below 40 ms per frame. This means the AI can analyze more than 25 frames per second, which is fast enough for smooth real-time counting. Inference runs as a background task and does not interfere with the responsiveness of the kiosk display.

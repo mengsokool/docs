@@ -1,0 +1,87 @@
+{
+  "projectType": "saas",
+  "projectName": "BeeNut",
+  "projectDescription": "BeeNut is an open-source computer-vision counting kiosk that turns any desktop machine, Raspberry Pi, or single-board computer into a dedicated object-counting appliance powered by custom YOLO ONNX models.",
+  "theme": "almond",
+  "primaryColor": "#F3C622",
+  "lightColor": "#FDF6D3",
+  "darkColor": "#B88F00",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/how-it-works",
+              "concepts/models",
+              "concepts/counting",
+              "concepts/hardware"
+            ]
+          },
+          {
+            "group": "Using BeeNut",
+            "pages": [
+              "guides/kiosk-ui",
+              "guides/adding-models",
+              "guides/target-catalog",
+              "guides/settings",
+              "guides/diagnostics"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/profiles",
+              "deployment/raspberry-pi",
+              "deployment/linux-desktop",
+              "deployment/macos",
+              "deployment/recovery"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/configuration",
+              "reference/gpio",
+              "reference/changelog",
+              "reference/troubleshooting"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Touch-friendly Flutter kiosk UI for live object counting",
+    "Bring-your-own YOLO ONNX model support with hot-reload",
+    "Native GStreamer camera preview with zero-copy transport (IOSurface, DMA-BUF, Shared Memory)",
+    "Stable gated counting with confidence filtering and temporal smoothing",
+    "Raspberry Pi GPIO control for tray sensors and light relays",
+    "Multi-platform packaging: macOS, Linux desktop, and Raspberry Pi appliance",
+    "Target catalog for part type management",
+    "Built-in diagnostics and system resource monitoring"
+  ],
+  "publicApiSurface": [
+    "install-linux.sh (one-command installer with BEENUT_VERSION and BEENUT_PROFILE)",
+    "beenut-setup (post-install profile configuration utility)",
+    "beenut-setup --recover-desktop (appliance recovery command)",
+    "beenut-recover-desktop (alias recovery command)",
+    "Install profiles: appliance-pi, appliance-linux, desktop, dev-service",
+    "Model directory: service/models/<model-name>/yolo.onnx + labels.txt",
+    "config.json (MachineConfig: camera, model, gpio, counting, ui, part_types)",
+    "IPC protocol (JSON-lines over Unix socket at /tmp/beenutd.sock)",
+    "KioskServiceClient interface: selectPartType, saveConfig, setPreviewPaused, runDiagnostic, shutdown",
+    "BEENUT_GPIO_ALLOW=1 environment flag for non-Pi GPIO testing",
+    "pi-field-validation.sh --operator --confirm-boot-preview"
+  ]
+}

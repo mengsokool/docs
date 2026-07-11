@@ -1,0 +1,119 @@
+---
+title: "Recover a BeeNut Appliance That Is Stuck in Kiosk Mode"
+sidebarTitle: "Recovery"
+description: "Restore normal desktop access on a machine locked into BeeNut appliance mode using the built-in recovery command or an SSH session."
+---
+
+If you applied an `appliance-linux` or `appliance-pi` profile and the machine is now stuck in kiosk mode — showing only the BeeNut interface, a black screen, or a Plymouth splash with no way to reach a desktop — use the recovery procedure on this page to restore normal access.
+
+<Warning>
+Appliance profiles are designed to lock the device down completely. They disable TTY console logins, apply SSH shell restrictions, and configure systemd to boot directly into the BeeNut kiosk. Recovery requires either an active SSH session established **before** hardening was applied, a fallback terminal (if console access was not yet restricted), or booting from a live USB. Always test appliance profiles on a non-production machine before deploying to a device you cannot physically access for re-imaging.
+</Warning>
+
+## When You Need This Page
+
+You need to follow this procedure if any of the following apply:
+
+- You ran `beenut-setup --profile appliance-linux` or `beenut-setup --profile appliance-pi` and the machine no longer shows a desktop after rebooting.
+- The display is black or stuck on a Plymouth splash screen after a reboot.
+- You need to regain access to the host OS on a kiosk device for maintenance, re-configuration, or re-imaging.
+
+## Recovery via SSH or a Fallback Terminal
+
+If you can reach a shell on the device — either over SSH (if the session was established before hardening, or if SSH shell restriction has not yet locked you out) or from a physical keyboard in a fallback terminal — run the built-in recovery command:
+
+<Steps>
+  <Step title="Open an SSH session or a terminal on the device">
+    Connect over SSH from another machine on the same network:
+
+    ```bash
+    ssh <your-username>@<device-ip>
+    ```
+
+    If SSH is unavailable, try switching to a virtual console by pressing `Ctrl+Alt+F2` (or `F3`) at the kiosk display. If the console is accessible, log in with your system credentials.
+  </Step>
+
+  <Step title="Run the recovery command">
+    Execute either of the following — they are equivalent:
+
+    ```bash
+    sudo beenut-recover-desktop
+    ```
+
+    ```bash
+    sudo beenut-setup --recover-desktop
+    ```
+
+    You will see log output as the recovery utility works through each step.
+  </Step>
+
+  <Step title="Wait for the recovery sequence to complete">
+    The recovery utility performs the following actions in order:
+
+    1. Stops `beenut-service.service` and `beenut-kiosk.service`
+    2. Disables the kiosk service from the boot startup registry so it does not restart on the next boot
+    3. Re-enables the system's standard display manager (GDM, SDDM, or LightDM, whichever was present before)
+    4. Restores systemd's default target back to `graphical.target`
+    5. Reboots the device into the standard graphical desktop
+
+    The machine reboots automatically at the end of the sequence. After the reboot, the normal login screen appears.
+  </Step>
+</Steps>
+
+## If SSH Is Also Locked Out
+
+If the appliance profile has already disabled SSH shell access and you cannot reach a console, you need to boot from a live USB to regain control.
+
+<Steps>
+  <Step title="Boot from a live USB">
+    Use a bootable Ubuntu or Debian live USB image. On Raspberry Pi, use a spare SD card with a fresh Raspberry Pi OS image. Insert the media, power on the device while holding the appropriate boot selection key, and boot into the live environment.
+  </Step>
+
+  <Step title="Mount the system partition">
+    Identify the system partition with `lsblk`, then mount it:
+
+    ```bash
+    sudo mount /dev/sdXn /mnt
+    # For a Raspberry Pi SD card the root partition is typically /dev/mmcblk0p2
+    sudo mount /dev/mmcblk0p2 /mnt
+    ```
+
+    Replace `/dev/sdXn` or `/dev/mmcblk0p2` with the correct device path for your hardware.
+  </Step>
+
+  <Step title="Disable the BeeNut kiosk service">
+    Remove or disable the kiosk service symlink so it does not start on the next boot:
+
+    ```bash
+    sudo rm /mnt/etc/systemd/system/multi-user.target.wants/beenut-kiosk.service
+    sudo rm /mnt/etc/systemd/system/multi-user.target.wants/beenut-service.service
+    ```
+
+    Then restore the default systemd graphical target by re-creating the symlink:
+
+    ```bash
+    sudo ln -sf /lib/systemd/system/gdm.service \
+      /mnt/etc/systemd/system/display-manager.service
+    ```
+
+    Use `gdm.service`, `sddm.service`, or `lightdm.service` depending on which display manager was installed on the system before BeeNut was configured.
+  </Step>
+
+  <Step title="Unmount and reboot into the repaired system">
+    ```bash
+    sudo umount /mnt
+    sudo reboot
+    ```
+
+    Remove the live USB when the machine powers off. The device boots into the normal desktop on the next startup.
+  </Step>
+</Steps>
+
+## Prevention
+
+The most reliable way to avoid a locked-out appliance is to test the full install and recovery cycle on a non-production machine before rolling out to deployed devices. Specifically:
+
+- Apply the appliance profile on a spare device or a virtual machine first.
+- Verify that `sudo beenut-recover-desktop` successfully restores the desktop before deploying to hardware you cannot easily re-image.
+- Keep an SSH session open during the initial appliance setup so you have a fallback path if the display does not come back.
+- Label appliance-mode devices clearly so they are not mistaken for general-purpose workstations.

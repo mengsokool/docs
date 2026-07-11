@@ -1,0 +1,72 @@
+---
+title: "Install BeeNut on macOS"
+sidebarTitle: "macOS"
+description: "Download and install BeeNut on macOS using the DMG installer or the zipped app bundle from the GitHub Releases page."
+---
+
+BeeNut runs on macOS as a native app bundle built with Flutter, GStreamer, and ONNX Runtime. You can install it from a standard DMG installer or from a zipped `.app` bundle — both are available on the GitHub Releases page. No package manager or build toolchain is required to run BeeNut on macOS.
+
+<Note>
+macOS is the primary platform for development and desktop use. BeeNut on macOS does not support appliance or kiosk lockdown modes — those profiles are Linux-only. GPIO hardware control is also unavailable on macOS; the GPIO subsystem automatically runs in virtual mock mode, which is safe for testing counting logic and the full operator UI without physical hardware.
+</Note>
+
+## Download the Installer
+
+Go to the [BeeNut GitHub Releases page](https://github.com/mengsokool/app.beenut/releases) and download one of the following assets for your Mac:
+
+| Package | When to Use |
+|---|---|
+| `BeeNut-macos-*.dmg` | Standard drag-to-Applications installer — recommended for most users |
+| `BeeNut-macos-*.app.zip` | Zipped `.app` bundle — use when you want to manage the app location yourself |
+
+Each release also ships a `checksums.sha256` file you can use to verify the download before installing.
+
+## Install BeeNut
+
+<Steps>
+  <Step title="Open the DMG or unzip the bundle">
+    If you downloaded the DMG, double-click it to mount the disk image. A Finder window opens showing the BeeNut icon and a shortcut to your Applications folder.
+
+    If you downloaded the `.app.zip`, double-click the archive in Finder (or run `unzip BeeNut-macos-*.app.zip` in Terminal) to extract the `BeeNut.app` bundle.
+  </Step>
+
+  <Step title="Drag BeeNut to Applications">
+    From the mounted DMG window, drag the BeeNut icon onto the Applications folder shortcut. If you used the zip bundle, move `BeeNut.app` into `/Applications` manually in Finder.
+
+    Once the copy finishes, eject the DMG by clicking the eject icon in the Finder sidebar.
+  </Step>
+
+  <Step title="Launch BeeNut for the first time">
+    Open BeeNut from the Applications folder or from Spotlight. On the first launch, macOS may display a security prompt because BeeNut is distributed outside the Mac App Store.
+
+    If macOS blocks the launch with a message such as *"BeeNut cannot be opened because it is from an unidentified developer"*, dismiss the dialog, then open **System Preferences → Privacy & Security** (or **System Settings → Privacy & Security** on macOS Ventura and later) and click **Open Anyway** next to the BeeNut entry.
+  </Step>
+
+  <Step title="Grant camera permission">
+    BeeNut requests access to your Mac's camera on first launch. Click **Allow** in the system permission dialog. If you accidentally denied access, you can restore it in **System Preferences → Privacy & Security → Camera**.
+  </Step>
+</Steps>
+
+## Models Directory
+
+BeeNut does not ship sample model weights. To use BeeNut you need to supply your own YOLO ONNX model. On macOS, place your model folder inside the app bundle or point BeeNut to a custom path in Settings.
+
+**Default models path inside the app bundle:**
+
+```text
+BeeNut.app/Contents/Resources/service/models/
+```
+
+Create a subfolder for each model:
+
+```text
+BeeNut.app/Contents/Resources/service/models/my-model/
+├── yolo.onnx
+└── labels.txt
+```
+
+BeeNut reads class names from ONNX metadata first. If none are embedded, it falls back to `labels.txt` in the same folder. You can also configure a custom models directory from within the BeeNut Settings panel, which avoids placing files inside the app bundle.
+
+## GPIO on macOS
+
+GPIO hardware control is not available on macOS. When BeeNut starts on a Mac, the GPIO controller automatically activates virtual mock mode, which simulates tray sensor transitions and light relay commands in software. All counting logic, model inference, and the full operator UI work normally under mock mode. You do not need to configure anything — mock mode is the default on non-Pi hardware.
