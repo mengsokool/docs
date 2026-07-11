@@ -1,7 +1,7 @@
 ---
-title: "Run Diagnostics and Monitor BeeNut Health"
+title: "Diagnose and Monitor BeeNut Hardware and Service Health"
 sidebarTitle: "Diagnostics"
-description: "Use BeeNut's built-in diagnostics to check camera connectivity, model status, GPIO state, and system resource usage in real time."
+description: "Use BeeNut's built-in diagnostic tools to check camera, AI model, GPIO state, and system resources in real time from the settings panel."
 ---
 
 BeeNut includes built-in diagnostic tools to help you confirm the system is healthy, track down hardware issues, and verify your configuration before a production run. You can access all diagnostics from the Settings panel without connecting a laptop or opening a terminal.
@@ -13,7 +13,7 @@ The **Settings → Status** tab gives you a live view of the machine's health wh
 **Resource usage chart** — The chart displays CPU and RAM usage for two processes side by side:
 
 - **Daemon CPU / RAM** — Resources consumed by the `beenutd` backend service (camera capture, inference, GPIO, counting).
-- **Flutter CPU / RAM** — Resources consumed by the kiosk UI process.
+- **App CPU / RAM** — Resources consumed by the kiosk app process.
 
 The chart updates continuously in real time as long as the Status tab is open.
 
@@ -23,7 +23,7 @@ The chart updates continuously in real time as long as the Status tab is open.
 - The CPU temperature in degrees Celsius.
 - The **effective inference FPS** — the actual inference rate after thermal throttling is applied. On Raspberry Pi hardware, the service automatically reduces inference frequency when the CPU runs hot to protect the device.
 
-**Service connection** — The Connection Diagnostics section shows whether the Flutter UI is connected to the `beenutd` Unix socket. A green **connected** indicator means the control channel is up. A red **offline** indicator means the service is not reachable.
+**Service connection** — The Connection Diagnostics section shows whether the kiosk app is connected to the `beenutd` service. A green **connected** indicator means the control channel is up. A red **offline** indicator means the service is not reachable.
 
 <Tip>
 Keep the Status tab open when you first bring up a new installation. It gives you immediate feedback on camera FPS, inference latency, and thermal state without needing any command-line tools.
@@ -121,7 +121,7 @@ If the Status tab shows the service as **offline**, work through these checks in
   </Step>
 
   <Step title="Check the control socket">
-    BeeNut communicates over a Unix socket. Confirm the socket file exists:
+    The kiosk app connects to `beenutd` through a socket file. Confirm it exists:
 
     ```bash
     ls -la /tmp/beenutd.sock

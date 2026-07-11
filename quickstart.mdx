@@ -1,5 +1,5 @@
 ---
-title: "Get Started with BeeNut in Under 10 Minutes"
+title: "Get Started with BeeNut: Install, Model, and Count"
 sidebarTitle: "Quick Start"
 description: "Install BeeNut, load a YOLO ONNX model, configure your target parts, and run your first live counting session in under 10 minutes."
 ---
@@ -56,12 +56,18 @@ BeeNut turns any supported machine into a dedicated object-counting kiosk. You b
     | `appliance-pi` | Raspberry Pi kiosk using the `flutter-pi` runtime. |
     | `dev-service` | Installs the backend service only, for diagnostics or headless use. |
 
+    <Tip>
+      If you installed BeeNut from a `.deb` package manually, run `sudo beenut-setup` after installation to interactively select and apply the profile that matches your deployment scenario.
+    </Tip>
+
     <Warning>
       The `appliance-linux` and `appliance-pi` profiles intentionally take over your machine's boot process. Your display will go straight to the BeeNut kiosk on every startup. If you end up at a black screen, SSH into the machine and run:
 
       ```bash
-      sudo beenut-recover-desktop
+      sudo beenut-setup --recover-desktop
       ```
+
+      `beenut-recover-desktop` is a convenience alias for the same command. Either form stops the kiosk services, re-enables your display manager, restores the normal boot target, and reboots into a desktop session.
 
       Do **not** use an appliance profile on a machine you still need for general-purpose work.
     </Warning>

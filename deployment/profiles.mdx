@@ -1,7 +1,7 @@
 ---
 title: "BeeNut Install Profiles: Appliance, Desktop, and Dev"
 sidebarTitle: "Install Profiles"
-description: "Choose the right BeeNut install profile for your use case: appliance-pi, appliance-linux, desktop, or dev-service."
+description: "BeeNut post-install profiles decide how the kiosk integrates with the OS. Pick appliance-pi, appliance-linux, desktop, or dev-service for your scenario."
 ---
 
 Install profiles are post-install configuration modes that tell BeeNut how to integrate with the host operating system. After the `.deb` package is installed, the `beenut-setup` utility applies a profile that determines whether BeeNut takes over the display and boot sequence, runs as a normal desktop application, or starts as a headless background service. Choosing the right profile before you run setup is the single most consequential configuration decision you will make during deployment.
@@ -46,6 +46,13 @@ You can also supply the profile at install time using the `BEENUT_PROFILE` envir
 ```bash
 curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
   | sudo env BEENUT_PROFILE=desktop bash
+```
+
+To pin a specific release version, combine `BEENUT_VERSION` with `BEENUT_PROFILE`. The installer downloads that exact release package rather than the latest:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/mengsokool/app.beenut/master/scripts/install-linux.sh \
+  | sudo env BEENUT_VERSION=v1.2.0 BEENUT_PROFILE=appliance-pi bash
 ```
 
 The Linux installer is idempotent. Running it again on an already-configured machine downloads the matching release package, verifies `checksums.sha256`, upgrades or repairs the installed package via `apt`, and reapplies the selected profile.

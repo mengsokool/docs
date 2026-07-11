@@ -82,11 +82,15 @@ If the appliance profile has already disabled SSH shell access and you cannot re
   </Step>
 
   <Step title="Disable the BeeNut kiosk service">
-    Remove or disable the kiosk service symlink so it does not start on the next boot:
+    Remove or disable the kiosk service symlink so it does not start on the next boot. The kiosk service name differs by profile — remove whichever files are present:
 
     ```bash
-    sudo rm /mnt/etc/systemd/system/multi-user.target.wants/beenut-kiosk.service
-    sudo rm /mnt/etc/systemd/system/multi-user.target.wants/beenut-service.service
+    # Pi appliance (appliance-pi profile)
+    sudo rm -f /mnt/etc/systemd/system/multi-user.target.wants/beenut-kiosk.service
+    # Linux appliance (appliance-linux profile)
+    sudo rm -f /mnt/etc/systemd/system/multi-user.target.wants/beenut-kiosk-linux.service
+    # Both profiles
+    sudo rm -f /mnt/etc/systemd/system/multi-user.target.wants/beenut-service.service
     ```
 
     Then restore the default systemd graphical target by re-creating the symlink:

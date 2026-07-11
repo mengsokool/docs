@@ -1,7 +1,7 @@
 ---
-title: "How BeeNut Works: Camera, AI, and Counts"
+title: "How BeeNut Works: Camera, AI Inference, and Counting"
 sidebarTitle: "How It Works"
-description: "Understand how BeeNut connects a live camera feed to YOLO inference and delivers stable counted totals through its kiosk interface."
+description: "Understand how BeeNut connects a live camera feed to YOLO inference and delivers stable, trustworthy counted totals through its kiosk interface."
 ---
 
 BeeNut is built around two cooperating pieces of software that run at the same time: the kiosk interface you touch and see, and a background service called `beenutd` that owns the camera, runs the AI model, and manages the hardware. Keeping these two pieces separate is an intentional design choice — it means the display and controls stay smooth and responsive even while the counting engine is doing intensive work in the background.
@@ -51,8 +51,6 @@ If your setup includes a physical tray presence sensor connected to the Raspberr
 
 This hardware path is entirely independent of the AI pipeline, so the reset is instantaneous regardless of what the model is detecting at that moment.
 
-## The Control Socket
+## Instant Settings Updates
 
-The UI and the `beenutd` service coordinate over a local Unix socket on your device. When you change a setting — adjusting the confidence threshold, switching the target part type, or toggling the light relay — the kiosk sends that change to the service over this socket, and the service applies it. Status updates, count values, and detection data flow back the same way.
-
-This is an internal plumbing detail you never need to configure. It is mentioned here only so the system makes sense: if you ever wonder why a settings change takes effect almost instantly without restarting the app, this private channel is why.
+When you change a setting — adjusting the confidence threshold, switching the target part type, or toggling the light relay — the change takes effect almost immediately without restarting the app. The kiosk and background service communicate continuously in the background, so configuration changes, status updates, and count values stay in sync at all times.

@@ -1,5 +1,5 @@
 ---
-title: "Install BeeNut on Linux, Raspberry Pi, and macOS"
+title: "BeeNut Installation: Linux, Raspberry Pi, and macOS"
 sidebarTitle: "Installation"
 description: "Download and install BeeNut on Raspberry Pi, Linux desktop, or macOS using prebuilt packages or the one-command Linux installer script."
 ---
@@ -65,10 +65,10 @@ BeeNut ships prebuilt packages for Raspberry Pi, Linux desktop, and macOS. On Li
       If your machine returns to a black screen after applying an appliance profile, SSH in from another computer (before SSH is disabled) or boot into a recovery terminal and run:
 
       ```bash
-      sudo beenut-recover-desktop
+      sudo beenut-setup --recover-desktop
       ```
 
-      This stops the kiosk services, re-enables your display manager, restores the default graphical boot target, and reboots the machine into a normal desktop.
+      `beenut-recover-desktop` is a convenience alias for the same command — either form works. The recovery process stops the kiosk services, re-enables your display manager, restores the default graphical boot target, and reboots the machine into a normal desktop.
     </Warning>
 
     ## Manual .deb Install

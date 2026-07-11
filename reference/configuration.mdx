@@ -1,7 +1,7 @@
 ---
 title: "BeeNut Configuration Reference: config.json Fields"
 sidebarTitle: "Configuration"
-description: "Complete reference for BeeNut's config.json file, including camera, model, GPIO, counting, UI, and part type fields."
+description: "Complete reference for BeeNut's config.json file, covering camera, model, GPIO, counting, UI settings, and part type definitions for operators."
 ---
 
 BeeNut stores its entire runtime configuration in a single `config.json` file. The `beenutd` service reads this file on startup and hot-reloads compatible changes without a restart. You can edit the file directly or use the Settings panel inside the kiosk UI — both routes write to the same document. This reference describes every field, its type, its default value, and when you would change it.
@@ -21,7 +21,7 @@ These fields sit at the root of `config.json` and control global service behavio
 </ParamField>
 
 <ParamField path="previewSocket" type="string" default="/tmp/beenut-preview.sock">
-  Path to the Unix domain socket used to stream preview frames from `beenutd` to the Flutter UI via the GStreamer shared-memory transport. Must match the value expected by the kiosk service.
+  Path to the Unix domain socket used to stream live preview frames from `beenutd` to the kiosk UI. Change this only if `/tmp` is not writable on your target device or you are running multiple service instances.
 </ParamField>
 
 <ParamField path="poweroffCommand" type="string" default="">

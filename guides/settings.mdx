@@ -1,7 +1,7 @@
 ---
-title: "BeeNut Settings: Camera, Model, GPIO, and Display"
+title: "BeeNut Settings: Camera, Model, GPIO, and Display Setup"
 sidebarTitle: "Settings"
-description: "Configure BeeNut's camera source, AI model, counting thresholds, GPIO pins, display options, and theme from the settings panel."
+description: "Configure the BeeNut camera source, AI model, counting thresholds, GPIO pins, display scale, and theme from the kiosk settings panel."
 ---
 
 The BeeNut settings panel is your control center for everything outside of live counting. Open it by tapping the **Settings** button (gear icon) on the main kiosk screen. The panel is organized into five tabs: **Config**, **Model**, **Catalog**, **Test**, and **Status**. A **Shutdown** button at the bottom of the settings sidebar lets you power off the device safely — it is deliberately placed here rather than on the main screen to prevent accidental shutdowns.
@@ -10,7 +10,7 @@ All settings are validated when you save, and the configuration is written atomi
 
 ## Virtual keyboard
 
-On touch-screen kiosks, all text fields in the settings dialogs include a virtual keyboard. Tap any text field to bring up the keyboard. The keyboard is part of the Flutter UI and works without a physical keyboard attached.
+On touch-screen kiosks, all text fields in the settings dialogs include a virtual keyboard. Tap any text field to bring up the keyboard. The keyboard is built into the kiosk app and works without a physical keyboard attached.
 
 ---
 
@@ -38,7 +38,7 @@ Additional camera options:
 
 | Option | Description |
 |---|---|
-| **Preview transport** | How the native preview is delivered to the Flutter UI: Auto, IOSurface NV12 (macOS), DMA-BUF/EGL (Linux), Shared memory NV12, or MJPEG fallback. Leave on **Auto** unless you are troubleshooting preview issues. |
+| **Preview transport** | How the native camera preview is delivered to the kiosk screen: Auto, IOSurface NV12 (macOS), DMA-BUF/EGL (Linux), Shared memory NV12, or MJPEG fallback. Leave on **Auto** unless you are troubleshooting preview issues. |
 | **Warmup frames** | Number of frames to discard after the camera starts before inference begins. Allows the sensor to stabilize. Default: `5`. |
 | **Flip horizontal / Flip vertical** | Mirror the camera image if your mount orientation requires it. |
 
@@ -64,7 +64,7 @@ These settings are for advanced deployments:
 
 | Setting | Default | Purpose |
 |---|---|---|
-| **Control socket** | `/tmp/beenutd.sock` | Unix socket path for the JSON-lines control protocol between the Flutter UI and `beenutd`. |
+| **Control socket** | `/tmp/beenutd.sock` | Path to the Unix socket the kiosk app uses to communicate with the `beenutd` service. Change this only if you are running the service on a custom socket path. |
 | **Preview socket** | `/tmp/beenut-preview.sock` | Socket or transport path for the native preview stream. |
 | **Power-off command** | *(empty)* | Shell command BeeNut runs when you tap Shutdown. On Raspberry Pi appliance installs, this is set to `sudo poweroff` by the installer. |
 
@@ -180,13 +180,13 @@ The **Status** tab shows real-time resource metrics, hardware state, service con
 
 ### Resource usage chart
 
-A live chart displays CPU and RAM usage for both the `beenutd` daemon and the Flutter UI process. The chart updates continuously while the Status tab is open.
+A live chart displays CPU and RAM usage for both the `beenutd` daemon and the kiosk app process. The chart updates continuously while the Status tab is open.
 
 ### Connection diagnostics
 
 | Row | What it shows |
 |---|---|
-| **Service** | Whether the Flutter UI is connected to the `beenutd` socket (`connected` or `offline`). |
+| **Service** | Whether the kiosk app is connected to the `beenutd` service (`connected` or `offline`). |
 | **Camera** | Camera status string, capture FPS, and any camera permission issues. On macOS, a **Grant Access** button appears if camera permission has not been granted. |
 | **Model** | Model load status and detail text from the service. |
 | **GPIO** | GPIO backend type and readiness. |

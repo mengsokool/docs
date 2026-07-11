@@ -1,7 +1,7 @@
 ---
-title: "How BeeNut Counts: Stability and Gating Explained"
+title: "How BeeNut Counts: Smoothing and Tray Gating Explained"
 sidebarTitle: "Counting"
-description: "Learn how BeeNut produces stable counted totals from live video using confidence filtering, temporal smoothing, and tray-gate reset logic."
+description: "Learn how BeeNut turns raw per-frame detections into stable counted totals using confidence filtering, temporal smoothing, and tray-gate reset logic."
 ---
 
 BeeNut's displayed count is not simply the number of objects the AI detected in the most recent camera frame. Raw detections naturally vary from moment to moment — a part shifting slightly, a glare on a shiny surface, or two objects briefly overlapping can all cause the instantaneous count to jump by one or two for just a frame. If BeeNut showed you that raw number, the display would flicker constantly and you could never be sure when to trust it. Instead, BeeNut runs every detection through a three-stage stabilization pipeline before the count reaches your screen.
